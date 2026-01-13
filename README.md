@@ -1,70 +1,108 @@
-# Getting Started with Create React App
+# School Team Turismo
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Aplicación full-stack para la gestión de viajes escolares, cobros por cupones y control operativo. Incluye backend Laravel 11 (API REST + Sanctum) y frontend React 18 + Vite + TypeScript.
 
-## Available Scripts
+## Stack
 
-In the project directory, you can run:
+- **Backend**: Laravel 11, PHP 8.3, PostgreSQL 15+
+- **Frontend**: React 18, Vite, TypeScript
+- **Auth**: Sanctum (SPA)
+- **RBAC**: ADMIN / OFFICE / READONLY
+- **Auditoría**: audit_logs
+- **PDF**: chequeras A4 + Code128, comprobante X
 
-### `npm start`
+## Estructura
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+```
+.
+├── backend
+├── docker-compose.yml
+├── index.html
+├── src
+└── vite.config.ts
+```
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Backend (Laravel)
 
-### `npm test`
+### Setup rápido con Docker
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```bash
+cp backend/.env.example backend/.env
+docker compose up -d --build
+```
 
-### `npm run build`
+### Migraciones y seed
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+```bash
+docker compose exec app php artisan migrate
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+docker compose exec app php artisan db:seed
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+Seeder incluye **admin por defecto**:
+- `admin@schoolteam.turismo` / `admin123`
 
-### `npm run eject`
+### Endpoints principales
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+Todos bajo `/api`:
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+- Auth: `POST /auth/login`, `POST /auth/logout`, `GET /me`
+- CRUD: `/schools`, `/grades`, `/shifts`, `/trips`, `/budgets`, `/passenger-types`, `/guardians`, `/passengers`
+- Plan de cuotas: `POST /installment-plans`, `GET /installment-plans/{id}`, `PATCH /installments/{id}`
+- Chequeras: `POST /checkbooks`, `GET /checkbooks/{id}/pdf`
+- Cupones: `POST /coupons/scan`, `POST /coupons/{id}/collect`
+- Pagos no efectivos: `POST /payments/non-cash`, `GET /payments/{id}/receipt`
+- Reportes: `/reports/passengers`, `/reports/passenger-status`, `/reports/cashbox` (ADMIN), `/reports/provider-profit` (ADMIN)
+- Auditoría: `/audit` (ADMIN)
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+### RBAC y Seguridad
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+- Middleware `role:ADMIN` para reportes consolidados.
+- Policies sugeridas por recurso (Admin/Office/Readonly) y validación estricta vía Form Requests.
+- Rate limit recomendado para login con `throttle:10,1`.
+- Backups recomendados: snapshots diarios de PostgreSQL + storage de PDFs.
+- Datos sensibles (menores): aplicar enmascarado en reportes, cifrado en backups.
 
-## Learn More
+### Lógica crítica (servicios)
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+- `InstallmentPlanService`: genera plan (N ≤ 12), valida suma = total.
+- `CheckbookService`: crea chequera + cupones con código único.
+- `CouponCollectionService`: cobra cupón en efectivo, ajusta si difiere y audita.
+- `NonCashPaymentService`: registra pago no efectivo + genera comprobante X.
+- `AugustSurchargeService`: aplica recargo único en agosto si no hay pagos.
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### PDF y Code128
 
-### Code Splitting
+Se recomienda integrar un generador PDF (DOMPDF o Snappy) + librería de barcode (ej. `milon/barcode`) para renderizar **Code128** en los cupones. Las rutas `/checkbooks/{id}/pdf` y `/payments/{id}/receipt` están listas para integrarse con el servicio de PDF.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## Frontend (React + Vite)
 
-### Analyzing the Bundle Size
+### Desarrollo
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+```bash
+npm install
+npm run dev
+```
 
-### Making a Progressive Web App
+### Login demo
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+El frontend incluye un selector rápido de rol para visualizar permisos y navegación. Al conectar con Sanctum, reemplazar con login real.
 
-### Advanced Configuration
+## Tests mínimos (Backend)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+```bash
+docker compose exec app php artisan test
+```
 
-### Deployment
+Incluye:
+- DNI único por viaje.
+- Cobro de cupón crea pago + movimientos.
+- Motivo obligatorio si el monto difiere.
+- OFFICE sin acceso a reportes ADMIN.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+## Notas
 
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- Dinero en `numeric(12,2)`.
+- Timezone: `America/Argentina/Buenos_Aires`.
+- Cupones solo para **cobro en efectivo**.
+- Pagos no efectivos descuentan saldo pero **no** marcan cupones.

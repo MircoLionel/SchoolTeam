@@ -1,0 +1,21 @@
+{
+  "name": "schoolteam/turismo",
+  "type": "project",
+  "description": "Backend API para School Team Turismo",
+  "require": {
+    "php": "^8.3",
+    "laravel/framework": "^11.0",
+    "laravel/sanctum": "^4.0"
+  },
+  "require-dev": {
+    "pestphp/pest": "^2.0",
+    "pestphp/pest-plugin-laravel": "^2.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "App\\": "app/",
+      "Database\\Seeders\\": "database/seeders/",
+      "Tests\\": "tests/"
+    }
+  }
+}

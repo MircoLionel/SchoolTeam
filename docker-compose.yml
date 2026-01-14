@@ -1,50 +1,26 @@
-version: "3.9"
-
 services:
   app:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: schoolteam_app
-    environment:
-      APP_ENV: local
-      APP_DEBUG: "true"
-      APP_URL: http://localhost:8080
-      DB_CONNECTION: pgsql
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_DATABASE: schoolteam
-      DB_USERNAME: schoolteam
-      DB_PASSWORD: secret
-      TZ: America/Argentina/Buenos_Aires
+    image: webdevops/php-nginx:8.3
+    working_dir: /app
     volumes:
-      - ./backend:/var/www/html
+      - ./backend:/app
+    environment:
+      WEB_DOCUMENT_ROOT: /app/public
+    ports:
+      - "8000:80"
     depends_on:
       - db
 
-  nginx:
-    image: nginx:1.27-alpine
-    container_name: schoolteam_nginx
-    ports:
-      - "8080:80"
-    volumes:
-      - ./backend:/var/www/html
-      - ./backend/docker/nginx.conf:/etc/nginx/conf.d/default.conf
-    depends_on:
-      - app
-
   db:
-    image: postgres:15-alpine
-    container_name: schoolteam_db
+    image: postgres:15
     environment:
       POSTGRES_DB: schoolteam
-      POSTGRES_USER: schoolteam
-      POSTGRES_PASSWORD: secret
-      TZ: America/Argentina/Buenos_Aires
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     ports:
       - "5432:5432"
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
 
 volumes:
-  pg_data:
+  pgdata:

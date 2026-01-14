@@ -17,5 +17,10 @@
       "Database\\Seeders\\": "database/seeders/",
       "Tests\\": "tests/"
     }
+  },
+  "config": {
+    "allow-plugins": {
+      "pestphp/pest-plugin": true
+    }
   }
 }

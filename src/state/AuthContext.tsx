@@ -1,30 +1,93 @@
-import { createContext, useContext, useMemo, useState } from "react";
-import { Role, UserProfile } from "../types/auth";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { fetchMe, login as loginRequest, logout as logoutRequest } from "../services/api";
+import { UserProfile } from "../types/auth";
 
 interface AuthState {
   user: UserProfile | null;
-  loginAs: (role: Role) => void;
-  logout: () => void;
+  token: string | null;
+  isLoading: boolean;
+  error: string | null;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
-const demoUsers: Record<Role, UserProfile> = {
-  [Role.ADMIN]: { id: 1, name: "Admin Demo", email: "admin@schoolteam.turismo", role: Role.ADMIN },
-  [Role.OFFICE]: { id: 2, name: "Oficina Demo", email: "oficina@schoolteam.turismo", role: Role.OFFICE },
-  [Role.READONLY]: { id: 3, name: "Solo Lectura", email: "lectura@schoolteam.turismo", role: Role.READONLY }
-};
+const TOKEN_KEY = "schoolteam.token";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const loginAs = (role: Role) => {
-    setUser(demoUsers[role]);
+  useEffect(() => {
+    const savedToken = localStorage.getItem(TOKEN_KEY);
+    if (!savedToken) {
+      setIsLoading(false);
+      return;
+    }
+
+    setToken(savedToken);
+    fetchMe(savedToken)
+      .then((profile) => {
+        setUser(profile);
+        setError(null);
+      })
+      .catch((err: Error) => {
+        localStorage.removeItem(TOKEN_KEY);
+        setToken(null);
+        setUser(null);
+        setError(err.message);
+      })
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  const login = async (email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      const { token: newToken, user: profile } = await loginRequest(email, password);
+      localStorage.setItem(TOKEN_KEY, newToken);
+      setToken(newToken);
+      setUser(profile);
+      setError(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo iniciar sesión.";
+      setError(message);
+      setUser(null);
+      setToken(null);
+      localStorage.removeItem(TOKEN_KEY);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const logout = () => setUser(null);
+  const logout = async () => {
+    if (!token) {
+      setUser(null);
+      setToken(null);
+      localStorage.removeItem(TOKEN_KEY);
+      return;
+    }
 
-  const value = useMemo(() => ({ user, loginAs, logout }), [user]);
+    setIsLoading(true);
+    try {
+      await logoutRequest(token);
+    } catch (err) {
+      // ignore network errors on logout
+    } finally {
+      setUser(null);
+      setToken(null);
+      localStorage.removeItem(TOKEN_KEY);
+      setIsLoading(false);
+    }
+  };
+
+  const value = useMemo(
+    () => ({ user, token, isLoading, error, login, logout }),
+    [user, token, isLoading, error]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

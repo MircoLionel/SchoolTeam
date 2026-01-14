@@ -9,7 +9,16 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ allowedRoles, children, inline = false }: ProtectedRouteProps) {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="card">
+        <h2>Verificando sesión</h2>
+        <p>Estamos cargando tu perfil y permisos.</p>
+      </div>
+    );
+  }
 
   if (!user) {
     return <Navigate to="/login" replace />;

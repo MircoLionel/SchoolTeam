@@ -15,8 +15,8 @@ services:
     image: postgres:15
     environment:
       POSTGRES_DB: schoolteam
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: schoolteam
+      POSTGRES_PASSWORD: secret
     ports:
       - "5432:5432"
     volumes:

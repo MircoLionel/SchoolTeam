@@ -12,14 +12,21 @@ async function apiRequest<T>(
   options: RequestInit & { token?: string } = {}
 ): Promise<T> {
   const { token, headers, ...rest } = options;
-  const response = await fetch(`${API_URL}${path}`, {
-    ...rest,
-    headers: {
-      "Content-Type": "application/json",
-      ...(headers ?? {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
-    }
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      ...rest,
+      headers: {
+        "Content-Type": "application/json",
+        ...(headers ?? {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      }
+    });
+  } catch (error) {
+    throw new Error(
+      "No se pudo conectar con el backend. Revisá la URL, el servidor y la conexión."
+    );
+  }
 
   if (!response.ok) {
     let message = "Ocurrió un error inesperado.";

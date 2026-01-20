@@ -24,6 +24,8 @@ export function Schools() {
   const [name, setName] = useState("");
   const [locality, setLocality] = useState("");
   const [address, setAddress] = useState("");
+  const [schoolGradeId, setSchoolGradeId] = useState("");
+  const [schoolShiftId, setSchoolShiftId] = useState("");
   const [groupSchoolId, setGroupSchoolId] = useState("");
   const [groupGradeId, setGroupGradeId] = useState("");
   const [groupShiftId, setGroupShiftId] = useState("");
@@ -75,6 +77,10 @@ export function Schools() {
       setError("El nombre es obligatorio.");
       return;
     }
+    if (!schoolGradeId || !schoolShiftId) {
+      setError("Seleccioná grado y turno.");
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -83,10 +89,22 @@ export function Schools() {
         locality: locality.trim() || null,
         address: address.trim() || null
       });
+      const newGroup = await createSchoolGradeShift(token, {
+        school_id: newSchool.id,
+        grade_id: Number(schoolGradeId),
+        shift_id: Number(schoolShiftId),
+        route: null,
+        contact_name: null,
+        contact_phone: null,
+        contact_email: null
+      });
       setSchools((prev) => [...prev, newSchool]);
+      setGroups((prev) => [...prev, newGroup]);
       setName("");
       setLocality("");
       setAddress("");
+      setSchoolGradeId("");
+      setSchoolShiftId("");
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo crear la escuela.");
@@ -194,6 +212,34 @@ export function Schools() {
           <label className="field">
             <span>Nombre</span>
             <input value={name} onChange={(event) => setName(event.target.value)} />
+          </label>
+          <label className="field">
+            <span>Grado</span>
+            <select
+              value={schoolGradeId}
+              onChange={(event) => setSchoolGradeId(event.target.value)}
+            >
+              <option value="">Seleccionar</option>
+              {grades.map((grade) => (
+                <option key={grade.id} value={grade.id}>
+                  {grade.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Turno</span>
+            <select
+              value={schoolShiftId}
+              onChange={(event) => setSchoolShiftId(event.target.value)}
+            >
+              <option value="">Seleccionar</option>
+              {shifts.map((shift) => (
+                <option key={shift.id} value={shift.id}>
+                  {shift.name}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="field">
             <span>Localidad</span>

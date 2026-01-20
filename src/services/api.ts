@@ -23,6 +23,17 @@ export interface PassengerType {
   percentage: number;
 }
 
+export interface SchoolGradeShift {
+  id: number;
+  school_id: number;
+  grade_id: number;
+  shift_id: number;
+  route: string | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+}
+
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api";
 
 interface ApiErrorResponse {
@@ -176,6 +187,28 @@ export async function createPassengerType(
 
 export async function deletePassengerType(token: string, id: number) {
   return apiRequest<{ message: string }>(`/passenger-types/${id}`, {
+    method: "DELETE",
+    token
+  });
+}
+
+export async function fetchSchoolGradeShifts(token: string) {
+  return apiRequest<SchoolGradeShift[]>("/school-grade-shifts", { token });
+}
+
+export async function createSchoolGradeShift(
+  token: string,
+  payload: Omit<SchoolGradeShift, "id">
+) {
+  return apiRequest<SchoolGradeShift>("/school-grade-shifts", {
+    method: "POST",
+    token,
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function deleteSchoolGradeShift(token: string, id: number) {
+  return apiRequest<{ message: string }>(`/school-grade-shifts/${id}`, {
     method: "DELETE",
     token
   });

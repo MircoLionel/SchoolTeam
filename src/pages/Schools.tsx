@@ -1,16 +1,40 @@
-import { FormEvent, useEffect, useState } from "react";
-import { createSchool, deleteSchool, fetchSchools, School } from "../services/api";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  createSchool,
+  createSchoolGradeShift,
+  deleteSchool,
+  deleteSchoolGradeShift,
+  fetchGrades,
+  fetchSchoolGradeShifts,
+  fetchSchools,
+  fetchShifts,
+  Grade,
+  School,
+  SchoolGradeShift,
+  Shift
+} from "../services/api";
 import { useAuth } from "../state/AuthContext";
 
 export function Schools() {
   const { token } = useAuth();
   const [schools, setSchools] = useState<School[]>([]);
+  const [grades, setGrades] = useState<Grade[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [groups, setGroups] = useState<SchoolGradeShift[]>([]);
   const [name, setName] = useState("");
   const [locality, setLocality] = useState("");
   const [address, setAddress] = useState("");
+  const [groupSchoolId, setGroupSchoolId] = useState("");
+  const [groupGradeId, setGroupGradeId] = useState("");
+  const [groupShiftId, setGroupShiftId] = useState("");
+  const [route, setRoute] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isGroupSaving, setIsGroupSaving] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -20,8 +44,16 @@ export function Schools() {
       }
       setIsLoading(true);
       try {
-        const data = await fetchSchools(token);
-        setSchools(data);
+        const [schoolData, gradeData, shiftData, groupData] = await Promise.all([
+          fetchSchools(token),
+          fetchGrades(token),
+          fetchShifts(token),
+          fetchSchoolGradeShifts(token)
+        ]);
+        setSchools(schoolData);
+        setGrades(gradeData);
+        setShifts(shiftData);
+        setGroups(groupData);
         setError(null);
       } catch (err) {
         setError(err instanceof Error ? err.message : "No se pudieron cargar las escuelas.");
@@ -80,6 +112,74 @@ export function Schools() {
     }
   };
 
+  const handleGroupSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!token) {
+      setError("No hay sesión activa.");
+      return;
+    }
+    if (!groupSchoolId || !groupGradeId || !groupShiftId) {
+      setError("Seleccioná escuela, grado y turno.");
+      return;
+    }
+
+    setIsGroupSaving(true);
+    try {
+      const newGroup = await createSchoolGradeShift(token, {
+        school_id: Number(groupSchoolId),
+        grade_id: Number(groupGradeId),
+        shift_id: Number(groupShiftId),
+        route: route.trim() || null,
+        contact_name: contactName.trim() || null,
+        contact_phone: contactPhone.trim() || null,
+        contact_email: contactEmail.trim() || null
+      });
+      setGroups((prev) => [...prev, newGroup]);
+      setGroupSchoolId("");
+      setGroupGradeId("");
+      setGroupShiftId("");
+      setRoute("");
+      setContactName("");
+      setContactPhone("");
+      setContactEmail("");
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo crear el grupo.");
+    } finally {
+      setIsGroupSaving(false);
+    }
+  };
+
+  const handleGroupDelete = async (id: number) => {
+    if (!token) {
+      setError("No hay sesión activa.");
+      return;
+    }
+    if (!window.confirm("¿Querés eliminar este grupo?")) {
+      return;
+    }
+
+    try {
+      await deleteSchoolGradeShift(token, id);
+      setGroups((prev) => prev.filter((group) => group.id !== id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo eliminar el grupo.");
+    }
+  };
+
+  const schoolById = useMemo(
+    () => new Map(schools.map((school) => [school.id, school])),
+    [schools]
+  );
+  const gradeById = useMemo(
+    () => new Map(grades.map((grade) => [grade.id, grade])),
+    [grades]
+  );
+  const shiftById = useMemo(
+    () => new Map(shifts.map((shift) => [shift.id, shift])),
+    [shifts]
+  );
+
   return (
     <section className="stack">
       <header className="page-header">
@@ -108,6 +208,68 @@ export function Schools() {
         <div className="form-actions">
           <button type="submit" className="btn" disabled={isSaving}>
             {isSaving ? "Guardando..." : "Guardar escuela"}
+          </button>
+        </div>
+      </form>
+
+      <form className="card form-grid" onSubmit={handleGroupSubmit}>
+        <div className="form-row">
+          <label className="field">
+            <span>Escuela</span>
+            <select value={groupSchoolId} onChange={(event) => setGroupSchoolId(event.target.value)}>
+              <option value="">Seleccionar</option>
+              {schools.map((school) => (
+                <option key={school.id} value={school.id}>
+                  {school.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Grado</span>
+            <select value={groupGradeId} onChange={(event) => setGroupGradeId(event.target.value)}>
+              <option value="">Seleccionar</option>
+              {grades.map((grade) => (
+                <option key={grade.id} value={grade.id}>
+                  {grade.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Turno</span>
+            <select value={groupShiftId} onChange={(event) => setGroupShiftId(event.target.value)}>
+              <option value="">Seleccionar</option>
+              {shifts.map((shift) => (
+                <option key={shift.id} value={shift.id}>
+                  {shift.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="form-row">
+          <label className="field">
+            <span>Ruta / Grupo-salida</span>
+            <input value={route} onChange={(event) => setRoute(event.target.value)} />
+          </label>
+          <label className="field">
+            <span>Nombre de contacto</span>
+            <input value={contactName} onChange={(event) => setContactName(event.target.value)} />
+          </label>
+          <label className="field">
+            <span>Teléfono de contacto</span>
+            <input value={contactPhone} onChange={(event) => setContactPhone(event.target.value)} />
+          </label>
+          <label className="field">
+            <span>Email de contacto</span>
+            <input value={contactEmail} onChange={(event) => setContactEmail(event.target.value)} />
+          </label>
+        </div>
+        {error && <p className="form-error">{error}</p>}
+        <div className="form-actions">
+          <button type="submit" className="btn" disabled={isGroupSaving}>
+            {isGroupSaving ? "Guardando..." : "Guardar grupo-salida"}
           </button>
         </div>
       </form>
@@ -143,6 +305,54 @@ export function Schools() {
                     onClick={() => handleDelete(school.id)}
                   >
                     Eliminar
+                  </button>
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="placeholder-table">
+          <div className="table-row header">
+            <span>Grupo-salida</span>
+            <span>Contacto</span>
+            <span>Acciones</span>
+          </div>
+          {isLoading ? (
+            <div className="table-row">
+              <span>Cargando...</span>
+              <span>-</span>
+              <span />
+            </div>
+          ) : groups.length === 0 ? (
+            <div className="table-row">
+              <span>Sin grupos</span>
+              <span>Agregá el primero.</span>
+              <span />
+            </div>
+          ) : (
+            groups.map((group) => (
+              <div key={group.id} className="table-row">
+                <span>
+                  {schoolById.get(group.school_id)?.name ?? "Escuela"} -{" "}
+                  {gradeById.get(group.grade_id)?.name ?? "Grado"} -{" "}
+                  {shiftById.get(group.shift_id)?.name ?? "Turno"}
+                </span>
+                <span>{group.contact_phone ?? "-"}</span>
+                <span>
+                  <button type="button" className="link" onClick={() => handleGroupDelete(group.id)}>
+                    Eliminar
+                  </button>
+                  <button
+                    type="button"
+                    className="link"
+                    onClick={() =>
+                      window.location.assign(`/budgets?group=${group.id}`)
+                    }
+                  >
+                    Ver presupuesto
                   </button>
                 </span>
               </div>

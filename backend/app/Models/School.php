@@ -14,4 +14,9 @@ class School extends Model
         'locality',
         'address',
     ];
+
+    public function trips()
+    {
+        return $this->hasMany(Trip::class);
+    }
 }

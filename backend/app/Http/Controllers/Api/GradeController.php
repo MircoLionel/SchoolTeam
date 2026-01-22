@@ -10,17 +10,13 @@ class GradeController extends Controller
 {
     public function index()
     {
-        $grades = Grade::query()
-            ->orderBy('name')
-            ->get();
-
-        return response()->json($grades);
+        return response()->json(Grade::query()->orderBy('name')->get());
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string'],
         ]);
 
         $grade = Grade::create($data);
@@ -28,28 +24,24 @@ class GradeController extends Controller
         return response()->json($grade, 201);
     }
 
-    public function show(int $id)
+    public function show(Grade $grade)
     {
-        $grade = Grade::findOrFail($id);
-
         return response()->json($grade);
     }
 
-    public function update(Request $request, int $id)
+    public function update(Request $request, Grade $grade)
     {
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string'],
         ]);
 
-        $grade = Grade::findOrFail($id);
         $grade->update($data);
 
         return response()->json($grade);
     }
 
-    public function destroy(int $id)
+    public function destroy(Grade $grade)
     {
-        $grade = Grade::findOrFail($id);
         $grade->delete();
 
         return response()->json(['message' => 'Eliminado']);

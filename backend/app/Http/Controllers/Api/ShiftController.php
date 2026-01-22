@@ -10,17 +10,13 @@ class ShiftController extends Controller
 {
     public function index()
     {
-        $shifts = Shift::query()
-            ->orderBy('name')
-            ->get();
-
-        return response()->json($shifts);
+        return response()->json(Shift::query()->orderBy('name')->get());
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string'],
         ]);
 
         $shift = Shift::create($data);
@@ -28,28 +24,24 @@ class ShiftController extends Controller
         return response()->json($shift, 201);
     }
 
-    public function show(int $id)
+    public function show(Shift $shift)
     {
-        $shift = Shift::findOrFail($id);
-
         return response()->json($shift);
     }
 
-    public function update(Request $request, int $id)
+    public function update(Request $request, Shift $shift)
     {
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string'],
         ]);
 
-        $shift = Shift::findOrFail($id);
         $shift->update($data);
 
         return response()->json($shift);
     }
 
-    public function destroy(int $id)
+    public function destroy(Shift $shift)
     {
-        $shift = Shift::findOrFail($id);
         $shift->delete();
 
         return response()->json(['message' => 'Eliminado']);

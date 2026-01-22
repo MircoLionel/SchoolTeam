@@ -10,19 +10,15 @@ class SchoolController extends Controller
 {
     public function index()
     {
-        $schools = School::query()
-            ->orderBy('name')
-            ->get();
-
-        return response()->json($schools);
+        return response()->json(School::query()->orderBy('name')->get());
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'locality' => ['nullable', 'string', 'max:255'],
-            'address' => ['nullable', 'string', 'max:255'],
+            'name' => ['required', 'string'],
+            'locality' => ['nullable', 'string'],
+            'address' => ['nullable', 'string'],
         ]);
 
         $school = School::create($data);
@@ -30,30 +26,26 @@ class SchoolController extends Controller
         return response()->json($school, 201);
     }
 
-    public function show(int $id)
+    public function show(School $school)
     {
-        $school = School::findOrFail($id);
-
         return response()->json($school);
     }
 
-    public function update(Request $request, int $id)
+    public function update(Request $request, School $school)
     {
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'locality' => ['nullable', 'string', 'max:255'],
-            'address' => ['nullable', 'string', 'max:255'],
+            'name' => ['sometimes', 'string'],
+            'locality' => ['nullable', 'string'],
+            'address' => ['nullable', 'string'],
         ]);
 
-        $school = School::findOrFail($id);
         $school->update($data);
 
         return response()->json($school);
     }
 
-    public function destroy(int $id)
+    public function destroy(School $school)
     {
-        $school = School::findOrFail($id);
         $school->delete();
 
         return response()->json(['message' => 'Eliminado']);

@@ -9,9 +9,14 @@ class Shift extends Model
 {
     use HasFactory;
 
+    public $timestamps = false;
+
     protected $fillable = [
         'name',
     ];
 
-    public $timestamps = false;
+    public function trips()
+    {
+        return $this->belongsToMany(Trip::class, 'trip_shifts');
+    }
 }

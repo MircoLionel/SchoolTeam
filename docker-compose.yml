@@ -1,39 +1,26 @@
 services:
   app:
     image: webdevops/php-nginx:8.3
-    container_name: wgapp-react-app-1
     working_dir: /app
-    ports:
-      - "8000:80"
-    environment:
-      WEB_DOCUMENT_ROOT: /app/public
-      PHP_DISPLAY_ERRORS: "1"
-      PHP_MEMORY_LIMIT: "512M"
-      PHP_MAX_EXECUTION_TIME: "300"
     volumes:
       - ./backend:/app
+    environment:
+      WEB_DOCUMENT_ROOT: /app/public
+    ports:
+      - "8000:80"
     depends_on:
       - db
-    networks:
-      - wgnet
 
   db:
     image: postgres:15
-    container_name: wgapp-react-db-1
-    ports:
-      - "5432:5432"
     environment:
       POSTGRES_DB: schoolteam
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: schoolteam
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-    networks:
-      - wgnet
 
 volumes:
   pgdata:
-
-networks:
-  wgnet:
-    driver: bridge

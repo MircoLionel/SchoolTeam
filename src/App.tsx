@@ -4,7 +4,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Dashboard } from "./pages/Dashboard";
 import { Grades } from "./pages/Grades";
 import { Login } from "./pages/Login";
-import { PassengerTypes } from "./pages/PassengerTypes";
+import { Budgets } from "./pages/Budgets";
 import { PagePlaceholder } from "./pages/PagePlaceholder";
 import { Schools } from "./pages/Schools";
 import { Shifts } from "./pages/Shifts";
@@ -42,7 +42,7 @@ export default function App() {
         />
         <Route
           path="budgets"
-          element={<PagePlaceholder title="Presupuestos" description="Versionado + PDF." />}
+          element={<Budgets />}
         />
         <Route path="passenger-types" element={<PassengerTypes />} />
         <Route

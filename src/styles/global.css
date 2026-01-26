@@ -186,6 +186,10 @@ a {
   font-weight: 600;
 }
 
+.budget-table .table-row {
+  grid-template-columns: 1.3fr 1.1fr 1.2fr 90px 140px 120px;
+}
+
 .link {
   background: transparent;
   border: none;

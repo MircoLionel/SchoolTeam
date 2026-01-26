@@ -2,9 +2,12 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Dashboard } from "./pages/Dashboard";
+import { Grades } from "./pages/Grades";
 import { Login } from "./pages/Login";
 import { Budgets } from "./pages/Budgets";
 import { PagePlaceholder } from "./pages/PagePlaceholder";
+import { Schools } from "./pages/Schools";
+import { Shifts } from "./pages/Shifts";
 import { Role } from "./types/auth";
 
 const adminOnly = [Role.ADMIN];
@@ -24,18 +27,9 @@ export default function App() {
         }
       >
         <Route index element={<Dashboard />} />
-        <Route
-          path="schools"
-          element={<PagePlaceholder title="Escuelas" description="ABM de escuelas." />}
-        />
-        <Route
-          path="grades"
-          element={<PagePlaceholder title="Grados" description="ABM de grados." />}
-        />
-        <Route
-          path="shifts"
-          element={<PagePlaceholder title="Turnos" description="ABM de turnos." />}
-        />
+        <Route path="schools" element={<Schools />} />
+        <Route path="grades" element={<Grades />} />
+        <Route path="shifts" element={<Shifts />} />
         <Route
           path="contacts"
           element={
@@ -50,10 +44,7 @@ export default function App() {
           path="budgets"
           element={<Budgets />}
         />
-        <Route
-          path="passenger-types"
-          element={<PagePlaceholder title="Tipos de pasajero" description="ABM de porcentajes." />}
-        />
+        <Route path="passenger-types" element={<PassengerTypes />} />
         <Route
           path="guardians"
           element={<PagePlaceholder title="Responsables" description="ABM de responsables." />}

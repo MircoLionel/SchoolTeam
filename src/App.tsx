@@ -6,8 +6,7 @@ import { Grades } from "./pages/Grades";
 import { Login } from "./pages/Login";
 import { Budgets } from "./pages/Budgets";
 import { PagePlaceholder } from "./pages/PagePlaceholder";
-import { Schools } from "./pages/Schools";
-import { Shifts } from "./pages/Shifts";
+import { PassengerTypes } from "./pages/PassengerTypes";
 import { Role } from "./types/auth";
 
 const adminOnly = [Role.ADMIN];
@@ -43,6 +42,10 @@ export default function App() {
         <Route
           path="budgets"
           element={<Budgets />}
+        />
+        <Route
+          path="passenger-types"
+          element={<PassengerTypes />}
         />
         <Route path="passenger-types" element={<PassengerTypes />} />
         <Route

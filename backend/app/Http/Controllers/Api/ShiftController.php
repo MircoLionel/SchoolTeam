@@ -3,32 +3,47 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Shift;
 use Illuminate\Http\Request;
 
 class ShiftController extends Controller
 {
     public function index()
     {
-        return response()->json([]);
+        return response()->json(Shift::query()->orderBy('name')->get());
     }
 
     public function store(Request $request)
     {
-        return response()->json(['message' => 'Creado'], 201);
+        $data = $request->validate([
+            'name' => ['required', 'string'],
+        ]);
+
+        $shift = Shift::create($data);
+
+        return response()->json($shift, 201);
     }
 
-    public function show(int $id)
+    public function show(Shift $shift)
     {
-        return response()->json(['id' => $id]);
+        return response()->json($shift);
     }
 
-    public function update(Request $request, int $id)
+    public function update(Request $request, Shift $shift)
     {
-        return response()->json(['id' => $id, 'message' => 'Actualizado']);
+        $data = $request->validate([
+            'name' => ['required', 'string'],
+        ]);
+
+        $shift->update($data);
+
+        return response()->json($shift);
     }
 
-    public function destroy(int $id)
+    public function destroy(Shift $shift)
     {
-        return response()->json(['id' => $id, 'message' => 'Eliminado']);
+        $shift->delete();
+
+        return response()->json(['message' => 'Eliminado']);
     }
 }

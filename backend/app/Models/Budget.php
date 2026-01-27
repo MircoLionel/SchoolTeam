@@ -17,4 +17,9 @@ class Budget extends Model
         'status',
         'pdf_path',
     ];
+
+    public function trip()
+    {
+        return $this->belongsTo(Trip::class);
+    }
 }

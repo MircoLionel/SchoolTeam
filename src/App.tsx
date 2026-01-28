@@ -3,7 +3,10 @@ import { AppShell } from "./components/AppShell";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
+import { Budgets } from "./pages/Budgets";
 import { PagePlaceholder } from "./pages/PagePlaceholder";
+import { PassengerTypes } from "./pages/PassengerTypes";
+import { Schools } from "./pages/Schools";
 import { Role } from "./types/auth";
 
 const adminOnly = [Role.ADMIN];
@@ -25,7 +28,7 @@ export default function App() {
         <Route index element={<Dashboard />} />
         <Route
           path="schools"
-          element={<PagePlaceholder title="Escuelas" description="ABM de escuelas." />}
+          element={<Schools />}
         />
         <Route
           path="grades"
@@ -47,11 +50,11 @@ export default function App() {
         />
         <Route
           path="budgets"
-          element={<PagePlaceholder title="Presupuestos" description="Versionado + PDF." />}
+          element={<Budgets />}
         />
         <Route
           path="passenger-types"
-          element={<PagePlaceholder title="Tipos de pasajero" description="ABM de porcentajes." />}
+          element={<PassengerTypes />}
         />
         <Route
           path="guardians"

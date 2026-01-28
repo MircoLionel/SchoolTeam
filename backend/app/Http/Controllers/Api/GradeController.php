@@ -3,32 +3,47 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Grade;
 use Illuminate\Http\Request;
 
 class GradeController extends Controller
 {
     public function index()
     {
-        return response()->json([]);
+        return response()->json(Grade::query()->orderBy('name')->get());
     }
 
     public function store(Request $request)
     {
-        return response()->json(['message' => 'Creado'], 201);
+        $data = $request->validate([
+            'name' => ['required', 'string'],
+        ]);
+
+        $grade = Grade::create($data);
+
+        return response()->json($grade, 201);
     }
 
-    public function show(int $id)
+    public function show(Grade $grade)
     {
-        return response()->json(['id' => $id]);
+        return response()->json($grade);
     }
 
-    public function update(Request $request, int $id)
+    public function update(Request $request, Grade $grade)
     {
-        return response()->json(['id' => $id, 'message' => 'Actualizado']);
+        $data = $request->validate([
+            'name' => ['required', 'string'],
+        ]);
+
+        $grade->update($data);
+
+        return response()->json($grade);
     }
 
-    public function destroy(int $id)
+    public function destroy(Grade $grade)
     {
-        return response()->json(['id' => $id, 'message' => 'Eliminado']);
+        $grade->delete();
+
+        return response()->json(['message' => 'Eliminado']);
     }
 }

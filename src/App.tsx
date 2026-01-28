@@ -7,6 +7,7 @@ import { Login } from "./pages/Login";
 import { Budgets } from "./pages/Budgets";
 import { PagePlaceholder } from "./pages/PagePlaceholder";
 import { PassengerTypes } from "./pages/PassengerTypes";
+import { Schools } from "./pages/Schools";
 import { Role } from "./types/auth";
 
 const adminOnly = [Role.ADMIN];
@@ -26,9 +27,18 @@ export default function App() {
         }
       >
         <Route index element={<Dashboard />} />
-        <Route path="schools" element={<Schools />} />
-        <Route path="grades" element={<Grades />} />
-        <Route path="shifts" element={<Shifts />} />
+        <Route
+          path="schools"
+          element={<Schools />}
+        />
+        <Route
+          path="grades"
+          element={<PagePlaceholder title="Grados" description="ABM de grados." />}
+        />
+        <Route
+          path="shifts"
+          element={<PagePlaceholder title="Turnos" description="ABM de turnos." />}
+        />
         <Route
           path="contacts"
           element={

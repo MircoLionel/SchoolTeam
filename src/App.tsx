@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Dashboard } from "./pages/Dashboard";
+import { Grades } from "./pages/Grades";
 import { Login } from "./pages/Login";
 import { Budgets } from "./pages/Budgets";
 import { PagePlaceholder } from "./pages/PagePlaceholder";
@@ -56,6 +57,7 @@ export default function App() {
           path="passenger-types"
           element={<PassengerTypes />}
         />
+        <Route path="passenger-types" element={<PassengerTypes />} />
         <Route
           path="guardians"
           element={<PagePlaceholder title="Responsables" description="ABM de responsables." />}

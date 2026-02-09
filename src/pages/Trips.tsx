@@ -1,16 +1,25 @@
 import { useEffect, useState } from "react";
-import { fetchShifts } from "../services/api";
+import { fetchTrips } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 
-export function Shifts() {
+interface TripRecord {
+  id: number;
+  destination: string;
+  group_name: string;
+  year: number;
+  school?: { name: string } | null;
+  latestBudget?: { base_price_100: number; version: number } | null;
+}
+
+export function Trips() {
   const { token } = useAuth();
-  const [shifts, setShifts] = useState<Array<{ id: number; name: string }>>([]);
+  const [trips, setTrips] = useState<TripRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
-    const loadShifts = async () => {
+    const loadTrips = async () => {
       if (!token) {
         setIsLoading(false);
         return;
@@ -18,16 +27,16 @@ export function Shifts() {
 
       setIsLoading(true);
       try {
-        const response = await fetchShifts(token);
+        const response = await fetchTrips(token);
         const payload = Array.isArray(response) ? response : [];
         if (isMounted) {
-          setShifts(payload);
+          setTrips(payload);
           setError(null);
         }
       } catch (err) {
         if (isMounted) {
-          setShifts([]);
-          setError(err instanceof Error ? err.message : "No se pudieron cargar los turnos.");
+          setTrips([]);
+          setError(err instanceof Error ? err.message : "No se pudieron cargar los viajes.");
         }
       } finally {
         if (isMounted) {
@@ -36,7 +45,7 @@ export function Shifts() {
       }
     };
 
-    loadShifts();
+    loadTrips();
 
     return () => {
       isMounted = false;
@@ -47,8 +56,8 @@ export function Shifts() {
     <section className="stack">
       <header className="page-header">
         <div>
-          <h1>Turnos</h1>
-          <p>Listado de turnos disponibles.</p>
+          <h1>Viajes</h1>
+          <p>Viajes y presupuestos asociados.</p>
         </div>
         <button type="button" className="btn">
           Nuevo
@@ -56,32 +65,29 @@ export function Shifts() {
       </header>
 
       <div className="card">
-        <p>{isLoading ? "Cargando turnos..." : "Turnos registrados."}</p>
+        <p>{isLoading ? "Cargando viajes..." : "Viajes registrados."}</p>
         {error ? <p className="form-error">{error}</p> : null}
         <div className="placeholder-table">
           <div className="table-row header">
-            <span>Nombre</span>
-            <span>Detalle</span>
-            <span>Acciones</span>
+            <span>Escuela</span>
+            <span>Grupo salida</span>
+            <span>Destino / Año</span>
           </div>
-          {!isLoading && shifts.length === 0 ? (
+          {!isLoading && trips.length === 0 ? (
             <div className="table-row">
-              <span>No hay turnos cargados.</span>
-              <span>Agregá un turno para comenzar.</span>
+              <span>No hay viajes cargados.</span>
+              <span>Agregá un viaje para comenzar.</span>
               <span>-</span>
             </div>
           ) : null}
-          {shifts.map((shift) => (
-            <div key={shift.id} className="table-row">
-              <span>{shift.name}</span>
-              <span>-</span>
+          {trips.map((trip) => (
+            <div key={trip.id} className="table-row">
+              <span>{trip.school?.name ?? "Sin escuela"}</span>
+              <span>{trip.group_name}</span>
               <span>
-                <button type="button" className="link">
-                  Ver
-                </button>
-                <button type="button" className="link">
-                  Editar
-                </button>
+                {trip.destination} ({trip.year}){trip.latestBudget
+                  ? ` - V${trip.latestBudget.version}`
+                  : ""}
               </span>
             </div>
           ))}

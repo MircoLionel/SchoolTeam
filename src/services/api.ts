@@ -61,6 +61,22 @@ export async function fetchTrips(token: string) {
   return apiRequest<unknown>("/trips", { token });
 }
 
+export async function fetchSchools(token: string) {
+  return apiRequest<unknown>("/schools", { token });
+}
+
+export async function fetchGrades(token: string) {
+  return apiRequest<unknown>("/grades", { token });
+}
+
+export async function fetchShifts(token: string) {
+  return apiRequest<unknown>("/shifts", { token });
+}
+
+export async function fetchBudgets(token: string) {
+  return apiRequest<unknown>("/budgets", { token });
+}
+
 export async function fetchPassengers(token: string) {
   return apiRequest<unknown>("/passengers", { token });
 }

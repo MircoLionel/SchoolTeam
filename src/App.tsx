@@ -3,7 +3,13 @@ import { AppShell } from "./components/AppShell";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
+import { Budgets } from "./pages/Budgets";
+import { Grades } from "./pages/Grades";
 import { PagePlaceholder } from "./pages/PagePlaceholder";
+import { PassengerTypes } from "./pages/PassengerTypes";
+import { Schools } from "./pages/Schools";
+import { Shifts } from "./pages/Shifts";
+import { Trips } from "./pages/Trips";
 import { Role } from "./types/auth";
 
 const adminOnly = [Role.ADMIN];
@@ -25,15 +31,15 @@ export default function App() {
         <Route index element={<Dashboard />} />
         <Route
           path="schools"
-          element={<PagePlaceholder title="Escuelas" description="ABM de escuelas." />}
+          element={<Schools />}
         />
         <Route
           path="grades"
-          element={<PagePlaceholder title="Grados" description="ABM de grados." />}
+          element={<Grades />}
         />
         <Route
           path="shifts"
-          element={<PagePlaceholder title="Turnos" description="ABM de turnos." />}
+          element={<Shifts />}
         />
         <Route
           path="contacts"
@@ -43,15 +49,15 @@ export default function App() {
         />
         <Route
           path="trips"
-          element={<PagePlaceholder title="Viajes" description="ABM + asignación de turnos." />}
+          element={<Trips />}
         />
         <Route
           path="budgets"
-          element={<PagePlaceholder title="Presupuestos" description="Versionado + PDF." />}
+          element={<Budgets />}
         />
         <Route
           path="passenger-types"
-          element={<PagePlaceholder title="Tipos de pasajero" description="ABM de porcentajes." />}
+          element={<PassengerTypes />}
         />
         <Route
           path="guardians"

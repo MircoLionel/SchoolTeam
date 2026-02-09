@@ -17,4 +17,29 @@ class Trip extends Model
         'year',
         'status',
     ];
+
+    public function school()
+    {
+        return $this->belongsTo(School::class);
+    }
+
+    public function grade()
+    {
+        return $this->belongsTo(Grade::class);
+    }
+
+    public function shifts()
+    {
+        return $this->belongsToMany(Shift::class, 'trip_shifts');
+    }
+
+    public function budgets()
+    {
+        return $this->hasMany(Budget::class);
+    }
+
+    public function latestBudget()
+    {
+        return $this->hasOne(Budget::class)->latestOfMany('version');
+    }
 }

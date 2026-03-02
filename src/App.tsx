@@ -5,13 +5,13 @@ import { Dashboard } from "./pages/Dashboard";
 import { Grades } from "./pages/Grades";
 import { Login } from "./pages/Login";
 import { Budgets } from "./pages/Budgets";
-import { Grades } from "./pages/Grades";
-import { PagePlaceholder } from "./pages/PagePlaceholder";
 import { PassengerTypes } from "./pages/PassengerTypes";
 import { Schools } from "./pages/Schools";
 import { Shifts } from "./pages/Shifts";
 import { Trips } from "./pages/Trips";
 import { Role } from "./types/auth";
+import { ModuleCrudPage } from "./pages/ModuleCrudPage";
+import { Cashbox } from "./pages/Cashbox";
 
 const adminOnly = [Role.ADMIN];
 const adminOffice = [Role.ADMIN, Role.OFFICE];
@@ -30,60 +30,76 @@ export default function App() {
         }
       >
         <Route index element={<Dashboard />} />
-        <Route
-          path="schools"
-          element={<Schools />}
-        />
-        <Route
-          path="grades"
-          element={<Grades />}
-        />
-        <Route
-          path="shifts"
-          element={<Shifts />}
-        />
+        <Route path="schools" element={<Schools />} />
+        <Route path="grades" element={<Grades />} />
+        <Route path="shifts" element={<Shifts />} />
         <Route
           path="contacts"
           element={
-            <PagePlaceholder title="Contactos" description="ABM de contactos por escuela+grado+turno." />
+            <ModuleCrudPage
+              moduleKey="contacts"
+              title="Contactos"
+              description="Gestión de contactos por escuela, grado y turno."
+              itemLabel="Contacto"
+            />
           }
         />
-        <Route
-          path="trips"
-          element={<Trips />}
-        />
-        <Route
-          path="budgets"
-          element={<Budgets />}
-        />
-        <Route
-          path="passenger-types"
-          element={<PassengerTypes />}
-        />
+        <Route path="trips" element={<Trips />} />
+        <Route path="budgets" element={<Budgets />} />
         <Route path="passenger-types" element={<PassengerTypes />} />
         <Route
           path="guardians"
-          element={<PagePlaceholder title="Responsables" description="ABM de responsables." />}
+          element={
+            <ModuleCrudPage
+              moduleKey="guardians"
+              title="Responsables"
+              description="Alta, edición y seguimiento de responsables."
+              itemLabel="Responsable"
+            />
+          }
         />
         <Route
           path="passengers"
-          element={<PagePlaceholder title="Pasajeros" description="ABM de pasajeros." />}
+          element={
+            <ModuleCrudPage
+              moduleKey="passengers"
+              title="Pasajeros"
+              description="ABM de pasajeros vinculados a cada viaje."
+              itemLabel="Pasajero"
+            />
+          }
         />
         <Route
           path="installments"
-          element={<PagePlaceholder title="Plan de cuotas" description="Generación y edición de cuotas." />}
+          element={
+            <ModuleCrudPage
+              moduleKey="installments"
+              title="Plan de cuotas"
+              description="Configuración de planes y seguimiento de cobros."
+              itemLabel="Cuota"
+            />
+          }
         />
         <Route
           path="checkbooks"
-          element={<PagePlaceholder title="Chequeras" description="Generación e impresión PDF." />}
+          element={
+            <ModuleCrudPage
+              moduleKey="checkbooks"
+              title="Chequeras"
+              description="Control de emisión y estado de chequeras."
+              itemLabel="Chequera"
+            />
+          }
         />
         <Route
           path="coupons/collect"
           element={
             <ProtectedRoute allowedRoles={adminOffice} inline>
-              <PagePlaceholder
+              <ModuleCrudPage
+                moduleKey="coupons-collect"
                 title="Cobro de cupón"
-                description="Escaneo de barcode, cobro efectivo y ajustes."
+                description="Registro de cobros y control de cupones cobrados."
+                itemLabel="Cobro"
               />
             </ProtectedRoute>
           }
@@ -92,22 +108,31 @@ export default function App() {
           path="payments/non-cash"
           element={
             <ProtectedRoute allowedRoles={adminOffice} inline>
-              <PagePlaceholder
+              <ModuleCrudPage
+                moduleKey="payments-non-cash"
                 title="Pago no efectivo"
-                description="Registro de transferencias/MP + Comprobante X."
+                description="Transferencias y medios no efectivos con comprobantes."
+                itemLabel="Pago"
               />
             </ProtectedRoute>
           }
         />
         <Route
           path="accounts"
-          element={<PagePlaceholder title="Estado de cuenta" description="Resumen por pasajero." />}
+          element={
+            <ModuleCrudPage
+              moduleKey="accounts"
+              title="Estado de cuenta"
+              description="Resumen por pasajero y control de deuda."
+              itemLabel="Cuenta"
+            />
+          }
         />
         <Route
           path="cashbox"
           element={
             <ProtectedRoute allowedRoles={adminOnly} inline>
-              <PagePlaceholder title="Caja" description="Ingresos, egresos y reportes." />
+              <Cashbox />
             </ProtectedRoute>
           }
         />
@@ -115,7 +140,12 @@ export default function App() {
           path="providers"
           element={
             <ProtectedRoute allowedRoles={adminOnly} inline>
-              <PagePlaceholder title="Proveedores" description="Costos y ganancias por viaje." />
+              <ModuleCrudPage
+                moduleKey="providers"
+                title="Proveedores"
+                description="Control de proveedores y costos operativos."
+                itemLabel="Proveedor"
+              />
             </ProtectedRoute>
           }
         />
@@ -123,7 +153,12 @@ export default function App() {
           path="audit"
           element={
             <ProtectedRoute allowedRoles={adminOnly} inline>
-              <PagePlaceholder title="Auditoría" description="Log de acciones críticas." />
+              <ModuleCrudPage
+                moduleKey="audit"
+                title="Auditoría"
+                description="Registro de eventos críticos y trazabilidad."
+                itemLabel="Evento"
+              />
             </ProtectedRoute>
           }
         />

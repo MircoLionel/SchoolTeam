@@ -5,7 +5,6 @@ import { Dashboard } from "./pages/Dashboard";
 import { Grades } from "./pages/Grades";
 import { Login } from "./pages/Login";
 import { Budgets } from "./pages/Budgets";
-import { Grades } from "./pages/Grades";
 import { PagePlaceholder } from "./pages/PagePlaceholder";
 import { PassengerTypes } from "./pages/PassengerTypes";
 import { Schools } from "./pages/Schools";
@@ -60,7 +59,6 @@ export default function App() {
           path="passenger-types"
           element={<PassengerTypes />}
         />
-        <Route path="passenger-types" element={<PassengerTypes />} />
         <Route
           path="guardians"
           element={<PagePlaceholder title="Responsables" description="ABM de responsables." />}

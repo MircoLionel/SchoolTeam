@@ -23,6 +23,15 @@ export interface PassengerType {
   percentage: number;
 }
 
+export interface CreateTripPayload {
+  school_id: number;
+  grade_id: number;
+  destination: string;
+  group_name: string;
+  year: number;
+  status?: string;
+}
+
 export interface SchoolGradeShift {
   id: number;
   school_id: number;
@@ -100,6 +109,14 @@ export async function fetchMe(token: string) {
 
 export async function fetchTrips(token: string) {
   return apiRequest<unknown>("/trips", { token });
+}
+
+export async function createTrip(token: string, payload: CreateTripPayload) {
+  return apiRequest<unknown>("/trips", {
+    method: "POST",
+    token,
+    body: JSON.stringify(payload)
+  });
 }
 
 export async function fetchBudgets(token: string) {

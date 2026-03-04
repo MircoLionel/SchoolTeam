@@ -25,14 +25,14 @@ export function ProtectedRoute({ allowedRoles, children, inline = false }: Prote
   }
 
   if (!allowedRoles.includes(user.role)) {
-    return inline ? (
+    const restricted = (
       <div className="card">
         <h2>Acceso restringido</h2>
         <p>Tu perfil no tiene permisos para acceder a este módulo.</p>
       </div>
-    ) : (
-      <Navigate to="/" replace />
     );
+
+    return inline ? restricted : <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;

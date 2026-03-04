@@ -23,6 +23,7 @@ export function Trips() {
   const [grades, setGrades] = useState<OptionItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [newNotice] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState({

@@ -1,9 +1,12 @@
+import { useState } from "react";
 interface PagePlaceholderProps {
   title: string;
   description: string;
 }
 
 export function PagePlaceholder({ title, description }: PagePlaceholderProps) {
+  const [newNotice, setNewNotice] = useState<string | null>(null);
+
   return (
     <section className="stack">
       <header className="page-header">
@@ -21,6 +24,7 @@ export function PagePlaceholder({ title, description }: PagePlaceholderProps) {
           Esta pantalla está lista para integrarse con la API REST (Laravel + Sanctum). Aquí se
           cargarán los datos con filtros por DNI, nombre y estado.
         </p>
+        {newNotice ? <p className="badge">{newNotice}</p> : null}
         <div className="placeholder-table">
           <div className="table-row header">
             <span>Campo</span>

@@ -35,6 +35,7 @@ export function Budgets() {
   const [budgets, setBudgets] = useState<BudgetItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [newNotice, setNewNotice] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -103,7 +104,11 @@ export function Budgets() {
           <h1>Presupuestos</h1>
           <p>Asignados a escuelas y viajes, con versión y PDF.</p>
         </div>
-        <button type="button" className="btn">
+        <button
+          type="button"
+          className="btn"
+          onClick={() => setNewNotice("La creación de presupuestos estará disponible en el siguiente sprint.")}
+        >
           Nuevo
         </button>
       </header>
@@ -115,6 +120,7 @@ export function Budgets() {
             : "Listado de presupuestos vinculados a cada viaje."}
         </p>
         {error ? <p className="form-error">{error}</p> : null}
+        {newNotice ? <p className="badge">{newNotice}</p> : null}
 
         <div className="placeholder-table budget-table">
           <div className="table-row header">

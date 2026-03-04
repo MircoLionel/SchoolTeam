@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { fetchGrades } from "../services/api";
+import { FormEvent, useEffect, useState } from "react";
+import { createGrade, fetchGrades } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 
 export function Grades() {
@@ -7,6 +7,9 @@ export function Grades() {
   const [grades, setGrades] = useState<Array<{ id: number; name: string }>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -43,6 +46,26 @@ export function Grades() {
     };
   }, [token]);
 
+  const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!token || !newName.trim()) {
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const created = await createGrade(token, { name: newName.trim() });
+      setGrades((previous) => [...previous, created]);
+      setNewName("");
+      setIsCreating(false);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo crear el grado.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <section className="stack">
       <header className="page-header">
@@ -50,10 +73,24 @@ export function Grades() {
           <h1>Grados</h1>
           <p>Listado de grados disponibles.</p>
         </div>
-        <button type="button" className="btn">
-          Nuevo
+        <button type="button" className="btn" onClick={() => setIsCreating((current) => !current)}>
+          {isCreating ? "Cancelar" : "Nuevo"}
         </button>
       </header>
+
+      {isCreating ? (
+        <form className="card form-grid" onSubmit={handleCreate}>
+          <label className="field">
+            <span>Nombre</span>
+            <input value={newName} onChange={(event) => setNewName(event.target.value)} required />
+          </label>
+          <div className="form-actions">
+            <button type="submit" className="btn" disabled={isSaving}>
+              {isSaving ? "Guardando..." : "Guardar grado"}
+            </button>
+          </div>
+        </form>
+      ) : null}
 
       <div className="card">
         <p>{isLoading ? "Cargando grados..." : "Grados registrados."}</p>

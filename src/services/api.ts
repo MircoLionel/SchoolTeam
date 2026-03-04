@@ -32,6 +32,15 @@ export interface CreateTripPayload {
   status?: string;
 }
 
+export interface CreateBudgetPayload {
+  trip_id: number;
+  base_price_100: number;
+  suggested_installments: number;
+  version: number;
+  status?: string;
+  pdf_path?: string;
+}
+
 export interface SchoolGradeShift {
   id: number;
   school_id: number;
@@ -121,6 +130,14 @@ export async function createTrip(token: string, payload: CreateTripPayload) {
 
 export async function fetchBudgets(token: string) {
   return apiRequest<unknown>("/budgets", { token });
+}
+
+export async function createBudget(token: string, payload: CreateBudgetPayload) {
+  return apiRequest<unknown>("/budgets", {
+    method: "POST",
+    token,
+    body: JSON.stringify(payload)
+  });
 }
 
 export async function fetchPassengers(token: string) {

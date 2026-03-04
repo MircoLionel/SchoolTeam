@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { fetchBudgets } from "../services/api";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { createBudget, fetchBudgets, fetchTrips } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 
 interface BudgetSchool {
@@ -33,14 +33,23 @@ const currencyFormatter = new Intl.NumberFormat("es-AR", {
 export function Budgets() {
   const { token } = useAuth();
   const [budgets, setBudgets] = useState<BudgetItem[]>([]);
+  const [trips, setTrips] = useState<BudgetTrip[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [newNotice, setNewNotice] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [form, setForm] = useState({
+    trip_id: "",
+    base_price_100: "",
+    suggested_installments: "6",
+    version: "1",
+    status: "draft"
+  });
 
   useEffect(() => {
     let isMounted = true;
 
-    const loadBudgets = async () => {
+    const loadData = async () => {
       if (!token) {
         setIsLoading(false);
         return;
@@ -48,10 +57,17 @@ export function Budgets() {
 
       setIsLoading(true);
       try {
-        const response = await fetchBudgets(token);
-        const payload = Array.isArray(response) ? response : [];
+        const [budgetsResponse, tripsResponse] = await Promise.all([
+          fetchBudgets(token),
+          fetchTrips(token)
+        ]);
+
+        const budgetPayload = Array.isArray(budgetsResponse) ? budgetsResponse : [];
+        const tripPayload = Array.isArray(tripsResponse) ? tripsResponse : [];
+
         if (isMounted) {
-          setBudgets(payload);
+          setBudgets(budgetPayload);
+          setTrips(tripPayload);
           setError(null);
         }
       } catch (err) {
@@ -66,7 +82,7 @@ export function Budgets() {
       }
     };
 
-    loadBudgets();
+    loadData();
 
     return () => {
       isMounted = false;
@@ -74,6 +90,11 @@ export function Budgets() {
   }, [token]);
 
   const hasBudgets = budgets.length > 0;
+  const isFormReady =
+    form.trip_id &&
+    form.base_price_100.trim() &&
+    form.suggested_installments.trim() &&
+    form.version.trim();
 
   const rows = useMemo(
     () =>
@@ -97,6 +118,42 @@ export function Budgets() {
     [budgets]
   );
 
+  const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!token || !isFormReady) {
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const created = await createBudget(token, {
+        trip_id: Number(form.trip_id),
+        base_price_100: Number(form.base_price_100),
+        suggested_installments: Number(form.suggested_installments),
+        version: Number(form.version),
+        status: form.status
+      });
+
+      if (!Array.isArray(created)) {
+        setBudgets((previous) => [...previous, created as BudgetItem]);
+      }
+
+      setForm({
+        trip_id: "",
+        base_price_100: "",
+        suggested_installments: "6",
+        version: "1",
+        status: "draft"
+      });
+      setIsCreating(false);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo crear el presupuesto.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <section className="stack">
       <header className="page-header">
@@ -104,14 +161,81 @@ export function Budgets() {
           <h1>Presupuestos</h1>
           <p>Asignados a escuelas y viajes, con versión y PDF.</p>
         </div>
-        <button
-          type="button"
-          className="btn"
-          onClick={() => setNewNotice("La creación de presupuestos estará disponible en el siguiente sprint.")}
-        >
-          Nuevo
+        <button type="button" className="btn" onClick={() => setIsCreating((current) => !current)}>
+          {isCreating ? "Cancelar" : "Nuevo"}
         </button>
       </header>
+
+      {isCreating ? (
+        <form className="card form-grid" onSubmit={handleCreate}>
+          <div className="form-row">
+            <label className="field">
+              <span>Viaje</span>
+              <select
+                value={form.trip_id}
+                onChange={(event) => setForm((current) => ({ ...current, trip_id: event.target.value }))}
+                required
+              >
+                <option value="">Seleccionar</option>
+                {trips.map((trip) => (
+                  <option key={trip.id} value={trip.id}>
+                    {trip.school?.name ?? "Sin escuela"} - {trip.group_name} - {trip.destination} ({trip.year})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>Precio base</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.base_price_100}
+                onChange={(event) => setForm((current) => ({ ...current, base_price_100: event.target.value }))}
+                required
+              />
+            </label>
+            <label className="field">
+              <span>Cuotas sugeridas</span>
+              <input
+                type="number"
+                min="1"
+                value={form.suggested_installments}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, suggested_installments: event.target.value }))
+                }
+                required
+              />
+            </label>
+            <label className="field">
+              <span>Versión</span>
+              <input
+                type="number"
+                min="1"
+                value={form.version}
+                onChange={(event) => setForm((current) => ({ ...current, version: event.target.value }))}
+                required
+              />
+            </label>
+          </div>
+
+          <div className="form-row">
+            <label className="field">
+              <span>Estado</span>
+              <input
+                value={form.status}
+                onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}
+              />
+            </label>
+          </div>
+
+          <div className="form-actions">
+            <button type="submit" className="btn" disabled={isSaving || !isFormReady}>
+              {isSaving ? "Guardando..." : "Guardar presupuesto"}
+            </button>
+          </div>
+        </form>
+      ) : null}
 
       <div className="card">
         <p>

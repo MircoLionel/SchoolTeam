@@ -14,11 +14,7 @@ export function PagePlaceholder({ title, description }: PagePlaceholderProps) {
           <h1>{title}</h1>
           <p>{description}</p>
         </div>
-        <button
-          type="button"
-          className="btn"
-          onClick={() => setNewNotice("Alta en construcción para este módulo.")}
-        >
+        <button type="button" className="btn" disabled>
           Nuevo
         </button>
       </header>

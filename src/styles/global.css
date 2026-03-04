@@ -157,6 +157,11 @@ a {
   background: #0b4db8;
 }
 
+.btn:disabled {
+  background: #98a2b3;
+  cursor: not-allowed;
+}
+
 .badge {
   background: #f0f9ff;
   color: #026aa2;

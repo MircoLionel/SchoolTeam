@@ -244,6 +244,7 @@ export function Budgets() {
             : "Listado de presupuestos vinculados a cada viaje."}
         </p>
         {error ? <p className="form-error">{error}</p> : null}
+        {newNotice ? <p className="badge">{newNotice}</p> : null}
 
         <div className="placeholder-table budget-table">
           <div className="table-row header">

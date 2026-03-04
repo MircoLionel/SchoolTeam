@@ -209,6 +209,7 @@ export function Trips() {
       <div className="card">
         <p>{isLoading ? "Cargando viajes..." : "Viajes registrados."}</p>
         {error ? <p className="form-error">{error}</p> : null}
+        {newNotice ? <p className="badge">{newNotice}</p> : null}
         <div className="placeholder-table">
           <div className="table-row header">
             <span>Escuela</span>

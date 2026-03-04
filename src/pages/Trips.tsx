@@ -16,6 +16,7 @@ export function Trips() {
   const [trips, setTrips] = useState<TripRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [newNotice, setNewNotice] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -59,7 +60,11 @@ export function Trips() {
           <h1>Viajes</h1>
           <p>Viajes y presupuestos asociados.</p>
         </div>
-        <button type="button" className="btn">
+        <button
+          type="button"
+          className="btn"
+          onClick={() => setNewNotice("La carga de nuevos viajes estará disponible en el siguiente sprint.")}
+        >
           Nuevo
         </button>
       </header>
@@ -67,6 +72,7 @@ export function Trips() {
       <div className="card">
         <p>{isLoading ? "Cargando viajes..." : "Viajes registrados."}</p>
         {error ? <p className="form-error">{error}</p> : null}
+        {newNotice ? <p className="badge">{newNotice}</p> : null}
         <div className="placeholder-table">
           <div className="table-row header">
             <span>Escuela</span>

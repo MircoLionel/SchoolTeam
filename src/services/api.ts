@@ -23,6 +23,24 @@ export interface PassengerType {
   percentage: number;
 }
 
+export interface CreateTripPayload {
+  school_id: number;
+  grade_id: number;
+  destination: string;
+  group_name: string;
+  year: number;
+  status?: string;
+}
+
+export interface CreateBudgetPayload {
+  trip_id: number;
+  base_price_100: number;
+  suggested_installments: number;
+  version: number;
+  status?: string;
+  pdf_path?: string;
+}
+
 export interface SchoolGradeShift {
   id: number;
   school_id: number;
@@ -102,20 +120,24 @@ export async function fetchTrips(token: string) {
   return apiRequest<unknown>("/trips", { token });
 }
 
-export async function fetchSchools(token: string) {
-  return apiRequest<unknown>("/schools", { token });
-}
-
-export async function fetchGrades(token: string) {
-  return apiRequest<unknown>("/grades", { token });
-}
-
-export async function fetchShifts(token: string) {
-  return apiRequest<unknown>("/shifts", { token });
+export async function createTrip(token: string, payload: CreateTripPayload) {
+  return apiRequest<unknown>("/trips", {
+    method: "POST",
+    token,
+    body: JSON.stringify(payload)
+  });
 }
 
 export async function fetchBudgets(token: string) {
   return apiRequest<unknown>("/budgets", { token });
+}
+
+export async function createBudget(token: string, payload: CreateBudgetPayload) {
+  return apiRequest<unknown>("/budgets", {
+    method: "POST",
+    token,
+    body: JSON.stringify(payload)
+  });
 }
 
 export async function fetchPassengers(token: string) {

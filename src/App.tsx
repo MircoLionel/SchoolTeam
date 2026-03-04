@@ -5,6 +5,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { Grades } from "./pages/Grades";
 import { Login } from "./pages/Login";
 import { Budgets } from "./pages/Budgets";
+import { PagePlaceholder } from "./pages/PagePlaceholder";
 import { PassengerTypes } from "./pages/PassengerTypes";
 import { Schools } from "./pages/Schools";
 import { Shifts } from "./pages/Shifts";
@@ -44,9 +45,18 @@ export default function App() {
             />
           }
         />
-        <Route path="trips" element={<Trips />} />
-        <Route path="budgets" element={<Budgets />} />
-        <Route path="passenger-types" element={<PassengerTypes />} />
+        <Route
+          path="trips"
+          element={<Trips />}
+        />
+        <Route
+          path="budgets"
+          element={<Budgets />}
+        />
+        <Route
+          path="passenger-types"
+          element={<PassengerTypes />}
+        />
         <Route
           path="guardians"
           element={

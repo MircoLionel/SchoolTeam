@@ -17,6 +17,8 @@ interface OptionItem {
   name: string;
 }
 
+const DEFAULT_GROUP_NAME = "Todos los grados · Todos los turnos · Todos los pasajeros";
+
 export function Trips() {
   const { token } = useAuth();
   const [trips, setTrips] = useState<TripRecord[]>([]);
@@ -189,6 +191,10 @@ export function Trips() {
                 onChange={(event) => setForm((current) => ({ ...current, estimated_date: event.target.value }))}
                 required
               />
+            </label>
+            <label className="field">
+              <span>Grupo salida</span>
+              <input value={DEFAULT_GROUP_NAME} readOnly />
             </label>
           </div>
 

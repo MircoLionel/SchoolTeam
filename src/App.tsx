@@ -14,6 +14,7 @@ import { Cashbox } from "./pages/Cashbox";
 import { Passengers } from "./pages/Passengers";
 import { Accounts } from "./pages/Accounts";
 import { TripPassengers } from "./pages/TripPassengers";
+import { CouponCollect } from "./pages/CouponCollect";
 
 const adminOnly = [Role.ADMIN];
 const adminOffice = [Role.ADMIN, Role.OFFICE];
@@ -63,12 +64,7 @@ export default function App() {
           path="coupons/collect"
           element={
             <ProtectedRoute allowedRoles={adminOffice} inline>
-              <ModuleCrudPage
-                moduleKey="coupons-collect"
-                title="Cobro de cupón"
-                description="Registro de cobros y control de cupones cobrados."
-                itemLabel="Cobro"
-              />
+              <CouponCollect />
             </ProtectedRoute>
           }
         />

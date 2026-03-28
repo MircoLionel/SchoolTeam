@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { readStoredPassengers } from "./Passengers";
+import { readStoredPassengers } from "../state/passengersStorage";
 
 const currencyFormatter = new Intl.NumberFormat("es-AR", {
   style: "currency",
@@ -27,7 +27,8 @@ export function Accounts() {
         );
       })
       .map((passenger) => {
-        const paidPct = Math.max(0, Math.min(100, (passenger.paid_amount / passenger.trip_value) * 100));
+        const paidAmount = passenger.installments.reduce((acc, value) => acc + value, 0);
+        const paidPct = Math.max(0, Math.min(100, (paidAmount / passenger.trip_value) * 100));
         const redWidth = Math.min(30, paidPct);
         const greenWidth = paidPct > 30 ? paidPct - 30 : 0;
         const grayWidth = Math.max(0, 100 - paidPct);
@@ -37,14 +38,14 @@ export function Accounts() {
           passenger: `${passenger.passengerName} ${passenger.passengerLastName}`,
           dni: passenger.passengerDni,
           tripValue: passenger.trip_value,
-          paidAmount: passenger.paid_amount,
+          paidAmount,
           paidPct,
           redWidth,
           greenWidth,
           grayWidth,
-          redAmount: Math.min(passenger.paid_amount, passenger.trip_value * 0.3),
-          greenAmount: Math.max(0, passenger.paid_amount - passenger.trip_value * 0.3),
-          grayAmount: Math.max(0, passenger.trip_value - passenger.paid_amount)
+          redAmount: Math.min(paidAmount, passenger.trip_value * 0.3),
+          greenAmount: Math.max(0, paidAmount - passenger.trip_value * 0.3),
+          grayAmount: Math.max(0, passenger.trip_value - paidAmount)
         };
       });
   }, [query]);

@@ -1,37 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { fetchSchools, fetchShifts, fetchTrips } from "../services/api";
 import { useAuth } from "../state/AuthContext";
+import { PassengerItem, readStoredPassengers, saveStoredPassengers } from "../state/passengersStorage";
 import { readTripPriceSettings } from "./Trips";
-
-interface Responsible {
-  name: string;
-  lastName: string;
-  dni: string;
-  birthDate: string;
-  email: string;
-  phone: string;
-  address: string;
-  city: string;
-}
-
-export interface PassengerItem {
-  id: number;
-  passengerName: string;
-  passengerLastName: string;
-  passengerDni: string;
-  passengerBirthDate: string;
-  school_id: number;
-  school_name: string;
-  trip_id: number;
-  trip_label: string;
-  shift_id: number;
-  shift_name: string;
-  isAdultCompanion: boolean;
-  hasSpecialPrice: boolean;
-  trip_value: number;
-  paid_amount: number;
-  responsible: Responsible;
-}
 
 interface SchoolItem { id: number; name: string }
 interface ShiftItem { id: number; name: string }
@@ -42,14 +13,6 @@ interface TripItem {
   school_id?: number;
   school?: { id: number; name: string } | null;
   grade?: { id: number; name: string } | null;
-}
-
-export const PASSENGERS_STORAGE_KEY = "schoolteam.passengers.with-responsible";
-
-export function readStoredPassengers(): PassengerItem[] {
-  const raw = localStorage.getItem(PASSENGERS_STORAGE_KEY);
-  if (!raw) return [];
-  try { return JSON.parse(raw) as PassengerItem[]; } catch { return []; }
 }
 
 const initialForm = {
@@ -63,6 +26,7 @@ const initialForm = {
   isAdultCompanion: false,
   hasSpecialPrice: false,
   specialPrice: "",
+  numInstallments: "8",
   responsibleName: "",
   responsibleLastName: "",
   dni: "",
@@ -73,6 +37,14 @@ const initialForm = {
   city: ""
 };
 
+function distributeInstallments(total: number, count: number) {
+  const safeCount = Math.max(1, count);
+  const base = Math.floor(total / safeCount);
+  return Array.from({ length: safeCount }, (_, index) =>
+    index === safeCount - 1 ? total - base * (safeCount - 1) : base
+  );
+}
+
 export function Passengers() {
   const { token } = useAuth();
   const [items, setItems] = useState<PassengerItem[]>(readStoredPassengers);
@@ -82,6 +54,7 @@ export function Passengers() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState(initialForm);
+  const [installments, setInstallments] = useState<number[]>(Array.from({ length: 8 }, () => 0));
 
   useEffect(() => {
     let isMounted = true;
@@ -123,7 +96,7 @@ export function Passengers() {
 
   const persist = (next: PassengerItem[]) => {
     setItems(next);
-    localStorage.setItem(PASSENGERS_STORAGE_KEY, JSON.stringify(next));
+    saveStoredPassengers(next);
   };
 
   const computeTripValue = (tripId: number) => {
@@ -144,6 +117,10 @@ export function Passengers() {
 
     const tripLabel = trip.grade?.name ?? trip.group_name ?? String(trip.year);
     const tripValue = computeTripValue(trip.id);
+    const count = Math.max(1, Number(form.numInstallments));
+    const installmentSum = installments.slice(0, count).reduce((acc, value) => acc + value, 0);
+    const finalInstallments = installmentSum > 0 ? installments.slice(0, count) : distributeInstallments(tripValue, count);
+    const paidAmount = finalInstallments.reduce((acc, value) => acc + value, 0);
 
     const nextItem: PassengerItem = {
       id: editingId ?? Date.now(),
@@ -160,7 +137,9 @@ export function Passengers() {
       isAdultCompanion: form.isAdultCompanion,
       hasSpecialPrice: form.hasSpecialPrice,
       trip_value: tripValue,
-      paid_amount: editingId ? items.find((i) => i.id === editingId)?.paid_amount ?? 0 : 0,
+      paid_amount: Math.min(paidAmount, tripValue),
+      num_installments: count,
+      installments: finalInstallments,
       responsible: {
         name: form.responsibleName.trim(),
         lastName: form.responsibleLastName.trim(),
@@ -181,6 +160,7 @@ export function Passengers() {
 
     setEditingId(null);
     setForm(initialForm);
+    setInstallments(Array.from({ length: 8 }, () => 0));
   };
 
   const startEdit = (item: PassengerItem) => {
@@ -196,6 +176,7 @@ export function Passengers() {
       isAdultCompanion: item.isAdultCompanion,
       hasSpecialPrice: item.hasSpecialPrice,
       specialPrice: item.hasSpecialPrice ? String(item.trip_value) : "",
+      numInstallments: String(item.num_installments),
       responsibleName: item.responsible.name,
       responsibleLastName: item.responsible.lastName,
       dni: item.responsible.dni,
@@ -205,16 +186,19 @@ export function Passengers() {
       address: item.responsible.address,
       city: item.responsible.city
     });
+    setInstallments(item.installments);
   };
 
   const removeItem = (id: number) => persist(items.filter((item) => item.id !== id));
+
+  const installmentInputs = Array.from({ length: Math.max(1, Number(form.numInstallments) || 1) }, (_, index) => index);
 
   return (
     <section className="stack">
       <header className="page-header">
         <div>
           <h1>Pasajeros</h1>
-          <p>Podés editar pasajero, marcar mayor acompañante y asignar precio especial.</p>
+          <p>Ahora cada pasajero tiene cuotas configurables y edición completa de precio.</p>
         </div>
         <span className="badge">{items.length} pasajeros</span>
       </header>
@@ -233,14 +217,29 @@ export function Passengers() {
           <label className="field"><span>Escuela</span><select value={form.school_id} onChange={(e)=>setForm(c=>({...c,school_id:e.target.value,trip_id:""}))} required><option value="">Seleccionar</option>{schools.map((s)=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
           <label className="field"><span>Salida</span><select value={form.trip_id} onChange={(e)=>setForm(c=>({...c,trip_id:e.target.value}))} required disabled={!form.school_id}><option value="">Seleccionar</option>{filteredTrips.map((t)=><option key={t.id} value={t.id}>{t.grade?.name ?? t.group_name ?? t.year}</option>)}</select></label>
           <label className="field"><span>Turno</span><select value={form.shift_id} onChange={(e)=>setForm(c=>({...c,shift_id:e.target.value}))} required><option value="">Seleccionar</option>{shifts.map((s)=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+          <label className="field"><span>Cantidad de cuotas</span><input type="number" min="1" max="18" value={form.numInstallments} onChange={(e)=>setForm(c=>({...c,numInstallments:e.target.value}))} required /></label>
         </div>
 
         <div className="form-row checkbox-row">
           <label><input type="checkbox" checked={form.isAdultCompanion} onChange={(e)=>setForm(c=>({...c,isAdultCompanion:e.target.checked,hasSpecialPrice:e.target.checked ? false : c.hasSpecialPrice,specialPrice:e.target.checked ? "" : c.specialPrice}))} /> Mayor acompañante (30% del viaje)</label>
           <label><input type="checkbox" checked={form.hasSpecialPrice} onChange={(e)=>setForm(c=>({...c,hasSpecialPrice:e.target.checked,isAdultCompanion:e.target.checked ? false : c.isAdultCompanion}))} /> Precio especial</label>
-          {form.hasSpecialPrice ? (
-            <label className="field inline-field"><span>Precio especial</span><input type="number" min="1" value={form.specialPrice} onChange={(e)=>setForm(c=>({...c,specialPrice:e.target.value}))} required /></label>
-          ) : null}
+          {form.hasSpecialPrice ? <label className="field inline-field"><span>Precio especial</span><input type="number" min="1" value={form.specialPrice} onChange={(e)=>setForm(c=>({...c,specialPrice:e.target.value}))} required /></label> : null}
+        </div>
+
+        <div className="card">
+          <h3>Cuotas del pasajero</h3>
+          <div className="form-row installments-grid">
+            {installmentInputs.map((index) => (
+              <label key={index} className="field">
+                <span>Cuota {index + 1}</span>
+                <input type="number" min="0" value={installments[index] ?? 0} onChange={(e)=>setInstallments((current)=>{
+                  const next=[...current];
+                  next[index]=Number(e.target.value||0);
+                  return next;
+                })} />
+              </label>
+            ))}
+          </div>
         </div>
 
         <div className="form-row">
@@ -248,27 +247,30 @@ export function Passengers() {
           <label className="field"><span>Apellido responsable</span><input value={form.responsibleLastName} onChange={(e)=>setForm(c=>({...c,responsibleLastName:e.target.value}))} required /></label>
           <label className="field"><span>DNI responsable</span><input value={form.dni} onChange={(e)=>setForm(c=>({...c,dni:e.target.value}))} required /></label>
         </div>
+
         <div className="form-row">
           <label className="field"><span>Fecha nac. responsable</span><input type="date" value={form.birthDate} onChange={(e)=>setForm(c=>({...c,birthDate:e.target.value}))} required /></label>
           <label className="field"><span>Email</span><input type="email" value={form.email} onChange={(e)=>setForm(c=>({...c,email:e.target.value}))} required /></label>
           <label className="field"><span>Teléfono</span><input value={form.phone} onChange={(e)=>setForm(c=>({...c,phone:e.target.value}))} required /></label>
         </div>
+
         <div className="form-row">
           <label className="field"><span>Dirección</span><input value={form.address} onChange={(e)=>setForm(c=>({...c,address:e.target.value}))} required /></label>
           <label className="field"><span>Ciudad</span><input value={form.city} onChange={(e)=>setForm(c=>({...c,city:e.target.value}))} required /></label>
         </div>
+
         <div className="form-actions"><button type="submit" className="btn" disabled={!isFormReady}>{editingId ? "Guardar cambios" : "Guardar pasajero"}</button></div>
       </form>
 
       <div className="card placeholder-table">
-        <div className="table-row header passengers-table-row-extended"><span>Pasajero</span><span>Escuela / Salida</span><span>Turno</span><span>Precio</span><span>Tipo</span><span>Acción</span></div>
+        <div className="table-row header passengers-table-row-extended"><span>Pasajero</span><span>Escuela / Salida</span><span>Turno</span><span>Precio</span><span>Cuotas</span><span>Acción</span></div>
         {items.map((item) => (
           <div key={item.id} className="table-row passengers-table-row-extended">
             <span>{item.passengerName} {item.passengerLastName}</span>
             <span>{item.school_name} · {item.trip_label}</span>
             <span>{item.shift_name}</span>
             <span>${item.trip_value.toLocaleString("es-AR")}</span>
-            <span>{item.hasSpecialPrice ? "Especial" : item.isAdultCompanion ? "Mayor acompañante (30%)" : "Regular"}</span>
+            <span>{item.num_installments}</span>
             <span><button type="button" className="link" onClick={() => startEdit(item)}>Editar</button><button type="button" className="link" onClick={() => removeItem(item.id)}>Eliminar</button></span>
           </div>
         ))}

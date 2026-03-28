@@ -220,6 +220,10 @@ export function Trips() {
                 required
               />
             </label>
+            <label className="field">
+              <span>Grupo salida</span>
+              <input value={DEFAULT_GROUP_NAME} readOnly />
+            </label>
           </div>
 
           <div className="form-actions">

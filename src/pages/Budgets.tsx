@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { createBudget, fetchBudgets, fetchTrips } from "../services/api";
+import { createBudget, fetchBudgets, fetchTrips, updateBudget } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 
 interface BudgetSchool {
@@ -19,8 +19,8 @@ interface BudgetItem {
   id: number;
   base_price_100: number;
   suggested_installments: number;
-  version: number;
-  status: string;
+  based_on_students?: number;
+  status: "presentado" | "aprobado";
   trip?: BudgetTrip | null;
 }
 
@@ -30,21 +30,23 @@ const currencyFormatter = new Intl.NumberFormat("es-AR", {
   maximumFractionDigits: 2
 });
 
+const budgetStatusOptions: Array<BudgetItem["status"]> = ["presentado", "aprobado"];
+
 export function Budgets() {
   const { token } = useAuth();
   const [budgets, setBudgets] = useState<BudgetItem[]>([]);
   const [trips, setTrips] = useState<BudgetTrip[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [newNotice] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [form, setForm] = useState({
     trip_id: "",
     base_price_100: "",
     suggested_installments: "6",
-    version: "1",
-    status: "draft"
+    based_on_students: "30",
+    status: "presentado" as BudgetItem["status"]
   });
 
   useEffect(() => {
@@ -58,16 +60,20 @@ export function Budgets() {
 
       setIsLoading(true);
       try {
-        const [budgetsResponse, tripsResponse] = await Promise.all([
-          fetchBudgets(token),
-          fetchTrips(token)
-        ]);
+        const [budgetsResponse, tripsResponse] = await Promise.all([fetchBudgets(token), fetchTrips(token)]);
 
         const budgetPayload = Array.isArray(budgetsResponse) ? budgetsResponse : [];
         const tripPayload = Array.isArray(tripsResponse) ? tripsResponse : [];
 
         if (isMounted) {
-          setBudgets(budgetPayload);
+          setBudgets(
+            budgetPayload.map((budget) => ({
+              ...(budget as BudgetItem),
+              status: budgetStatusOptions.includes((budget as BudgetItem).status)
+                ? (budget as BudgetItem).status
+                : "presentado"
+            }))
+          );
           setTrips(tripPayload);
           setError(null);
         }
@@ -92,10 +98,7 @@ export function Budgets() {
 
   const hasBudgets = budgets.length > 0;
   const isFormReady =
-    form.trip_id &&
-    form.base_price_100.trim() &&
-    form.suggested_installments.trim() &&
-    form.version.trim();
+    form.trip_id && form.base_price_100.trim() && form.suggested_installments.trim() && form.based_on_students.trim();
 
   const rows = useMemo(
     () =>
@@ -111,9 +114,9 @@ export function Budgets() {
           schoolName,
           groupName,
           destination: year ? `${destination} (${year})` : destination,
-          version: `V${budget.version}`,
+          basedOnStudents: budget.based_on_students ? `${budget.based_on_students} chicos` : "-",
           basePrice: currencyFormatter.format(budget.base_price_100),
-          status: budget.status ?? "-"
+          status: budget.status
         };
       }),
     [budgets]
@@ -131,20 +134,23 @@ export function Budgets() {
         trip_id: Number(form.trip_id),
         base_price_100: Number(form.base_price_100),
         suggested_installments: Number(form.suggested_installments),
-        version: Number(form.version),
+        version: 1,
         status: form.status
       });
 
       if (!Array.isArray(created)) {
-        setBudgets((previous) => [...previous, created as BudgetItem]);
+        setBudgets((previous) => [
+          ...previous,
+          { ...(created as BudgetItem), based_on_students: Number(form.based_on_students), status: form.status }
+        ]);
       }
 
       setForm({
         trip_id: "",
         base_price_100: "",
         suggested_installments: "6",
-        version: "1",
-        status: "draft"
+        based_on_students: "30",
+        status: "presentado"
       });
       setIsCreating(false);
       setError(null);
@@ -155,12 +161,30 @@ export function Budgets() {
     }
   };
 
+  const handleStatusChange = async (id: number, status: BudgetItem["status"]) => {
+    if (!token) return;
+
+    setUpdatingId(id);
+    const previous = budgets;
+    setBudgets((current) => current.map((item) => (item.id === id ? { ...item, status } : item)));
+
+    try {
+      await updateBudget(token, id, { status });
+      setError(null);
+    } catch (err) {
+      setBudgets(previous);
+      setError(err instanceof Error ? err.message : "No se pudo actualizar el estado del presupuesto.");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
   return (
     <section className="stack">
       <header className="page-header">
         <div>
           <h1>Presupuestos</h1>
-          <p>Asignados a escuelas y viajes, con versión y PDF.</p>
+          <p>Estados fijos: presentado y aprobado. Incluye base de chicos presupuestados.</p>
         </div>
         <button type="button" className="btn" onClick={() => setIsCreating((current) => !current)}>
           {isCreating ? "Cancelar" : "Nuevo"}
@@ -209,12 +233,12 @@ export function Budgets() {
               />
             </label>
             <label className="field">
-              <span>Versión</span>
+              <span>Base de chicos</span>
               <input
                 type="number"
                 min="1"
-                value={form.version}
-                onChange={(event) => setForm((current) => ({ ...current, version: event.target.value }))}
+                value={form.based_on_students}
+                onChange={(event) => setForm((current) => ({ ...current, based_on_students: event.target.value }))}
                 required
               />
             </label>
@@ -223,10 +247,18 @@ export function Budgets() {
           <div className="form-row">
             <label className="field">
               <span>Estado</span>
-              <input
+              <select
                 value={form.status}
-                onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}
-              />
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, status: event.target.value as BudgetItem["status"] }))
+                }
+              >
+                {budgetStatusOptions.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
 
@@ -245,14 +277,13 @@ export function Budgets() {
             : "Listado de presupuestos vinculados a cada viaje."}
         </p>
         {error ? <p className="form-error">{error}</p> : null}
-        {newNotice ? <p className="badge">{newNotice}</p> : null}
 
         <div className="placeholder-table budget-table">
           <div className="table-row header">
             <span>Escuela</span>
             <span>Grupo salida</span>
             <span>Destino / Año</span>
-            <span>Versión</span>
+            <span>Base chicos</span>
             <span>Precio base</span>
             <span>Estado</span>
           </div>
@@ -271,9 +302,21 @@ export function Budgets() {
               <span>{row.schoolName}</span>
               <span>{row.groupName}</span>
               <span>{row.destination}</span>
-              <span>{row.version}</span>
+              <span>{row.basedOnStudents}</span>
               <span>{row.basePrice}</span>
-              <span>{row.status}</span>
+              <span>
+                <select
+                  value={row.status}
+                  onChange={(event) => handleStatusChange(row.id, event.target.value as BudgetItem["status"])}
+                  disabled={updatingId === row.id}
+                >
+                  {budgetStatusOptions.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </span>
             </div>
           ))}
         </div>

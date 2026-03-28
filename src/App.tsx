@@ -5,14 +5,16 @@ import { Dashboard } from "./pages/Dashboard";
 import { Grades } from "./pages/Grades";
 import { Login } from "./pages/Login";
 import { Budgets } from "./pages/Budgets";
-import { PagePlaceholder } from "./pages/PagePlaceholder";
-import { PassengerTypes } from "./pages/PassengerTypes";
 import { Schools } from "./pages/Schools";
 import { Shifts } from "./pages/Shifts";
 import { Trips } from "./pages/Trips";
 import { Role } from "./types/auth";
 import { ModuleCrudPage } from "./pages/ModuleCrudPage";
 import { Cashbox } from "./pages/Cashbox";
+import { Passengers } from "./pages/Passengers";
+import { Accounts } from "./pages/Accounts";
+import { TripPassengers } from "./pages/TripPassengers";
+import { CouponCollect } from "./pages/CouponCollect";
 
 const adminOnly = [Role.ADMIN];
 const adminOffice = [Role.ADMIN, Role.OFFICE];
@@ -22,6 +24,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/trip-passengers" element={<TripPassengers />} />
       <Route
         path="/"
         element={
@@ -54,63 +57,14 @@ export default function App() {
           element={<Budgets />}
         />
         <Route
-          path="passenger-types"
-          element={<PassengerTypes />}
-        />
-        <Route
-          path="guardians"
-          element={
-            <ModuleCrudPage
-              moduleKey="guardians"
-              title="Responsables"
-              description="Alta, edición y seguimiento de responsables."
-              itemLabel="Responsable"
-            />
-          }
-        />
-        <Route
           path="passengers"
-          element={
-            <ModuleCrudPage
-              moduleKey="passengers"
-              title="Pasajeros"
-              description="ABM de pasajeros vinculados a cada viaje."
-              itemLabel="Pasajero"
-            />
-          }
-        />
-        <Route
-          path="installments"
-          element={
-            <ModuleCrudPage
-              moduleKey="installments"
-              title="Plan de cuotas"
-              description="Configuración de planes y seguimiento de cobros."
-              itemLabel="Cuota"
-            />
-          }
-        />
-        <Route
-          path="checkbooks"
-          element={
-            <ModuleCrudPage
-              moduleKey="checkbooks"
-              title="Chequeras"
-              description="Control de emisión y estado de chequeras."
-              itemLabel="Chequera"
-            />
-          }
+          element={<Passengers />}
         />
         <Route
           path="coupons/collect"
           element={
             <ProtectedRoute allowedRoles={adminOffice} inline>
-              <ModuleCrudPage
-                moduleKey="coupons-collect"
-                title="Cobro de cupón"
-                description="Registro de cobros y control de cupones cobrados."
-                itemLabel="Cobro"
-              />
+              <CouponCollect />
             </ProtectedRoute>
           }
         />
@@ -129,14 +83,7 @@ export default function App() {
         />
         <Route
           path="accounts"
-          element={
-            <ModuleCrudPage
-              moduleKey="accounts"
-              title="Estado de cuenta"
-              description="Resumen por pasajero y control de deuda."
-              itemLabel="Cuenta"
-            />
-          }
+          element={<Accounts />}
         />
         <Route
           path="cashbox"

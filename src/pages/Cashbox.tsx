@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { readCashIncomes } from "../state/passengersStorage";
 
 interface CashCategory {
   label: string;
@@ -14,8 +15,6 @@ const categories: CashCategory[] = [
   { label: "Administración", amount: 29000, color: "#f97316" }
 ];
 
-const ingresos = 612000;
-
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("es-AR", {
     style: "currency",
@@ -25,11 +24,13 @@ function formatCurrency(value: number) {
 }
 
 export function Cashbox() {
-  const totalEgresos = useMemo(
-    () => categories.reduce((acc, category) => acc + category.amount, 0),
+  const incomesFromCoupons = useMemo(
+    () => readCashIncomes().reduce((acc, movement) => acc + movement.amount, 0),
     []
   );
-  const balance = ingresos - totalEgresos;
+
+  const totalEgresos = useMemo(() => categories.reduce((acc, category) => acc + category.amount, 0), []);
+  const balance = incomesFromCoupons - totalEgresos;
 
   const chart = useMemo(() => {
     const total = categories.reduce((acc, category) => acc + category.amount, 0);
@@ -49,7 +50,7 @@ export function Cashbox() {
       <header className="page-header">
         <div>
           <h1>Caja</h1>
-          <p>Resumen de ingresos, egresos y balance mensual.</p>
+          <p>Ingresos reflejados desde Cobro de cupón + egresos.</p>
         </div>
         <span className={`badge ${balance >= 0 ? "badge-positive" : "badge-negative"}`}>
           Balance: {formatCurrency(balance)}
@@ -70,8 +71,8 @@ export function Cashbox() {
         <div className="card cashbox-summary">
           <h3>Movimientos del mes</h3>
           <div className="cashbox-row">
-            <span>Ingresos</span>
-            <strong>{formatCurrency(ingresos)}</strong>
+            <span>Ingresos (cupones)</span>
+            <strong>{formatCurrency(incomesFromCoupons)}</strong>
           </div>
           <div className="cashbox-row">
             <span>Egresos</span>

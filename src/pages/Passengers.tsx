@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { fetchSchools, fetchTrips } from "../services/api";
+import { fetchSchools, fetchShifts, fetchTrips } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 
 interface Responsible {
@@ -13,18 +13,29 @@ interface Responsible {
   city: string;
 }
 
-interface PassengerItem {
+export interface PassengerItem {
   id: number;
   passengerName: string;
   passengerLastName: string;
+  passengerDni: string;
+  passengerBirthDate: string;
   school_id: number;
   school_name: string;
   trip_id: number;
   trip_label: string;
+  shift_id: number;
+  shift_name: string;
+  trip_value: number;
+  paid_amount: number;
   responsible: Responsible;
 }
 
 interface SchoolItem {
+  id: number;
+  name: string;
+}
+
+interface ShiftItem {
   id: number;
   name: string;
 }
@@ -38,10 +49,10 @@ interface TripItem {
   grade?: { id: number; name: string } | null;
 }
 
-const STORAGE_KEY = "schoolteam.passengers.with-responsible";
+export const PASSENGERS_STORAGE_KEY = "schoolteam.passengers.with-responsible";
 
-function readStoredItems(): PassengerItem[] {
-  const raw = localStorage.getItem(STORAGE_KEY);
+export function readStoredPassengers(): PassengerItem[] {
+  const raw = localStorage.getItem(PASSENGERS_STORAGE_KEY);
   if (!raw) return [];
   try {
     return JSON.parse(raw) as PassengerItem[];
@@ -52,15 +63,19 @@ function readStoredItems(): PassengerItem[] {
 
 export function Passengers() {
   const { token } = useAuth();
-  const [items, setItems] = useState<PassengerItem[]>(readStoredItems);
+  const [items, setItems] = useState<PassengerItem[]>(readStoredPassengers);
   const [schools, setSchools] = useState<SchoolItem[]>([]);
   const [trips, setTrips] = useState<TripItem[]>([]);
+  const [shifts, setShifts] = useState<ShiftItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
     passengerName: "",
     passengerLastName: "",
+    passengerDni: "",
+    passengerBirthDate: "",
     school_id: "",
     trip_id: "",
+    shift_id: "",
     responsibleName: "",
     responsibleLastName: "",
     dni: "",
@@ -78,15 +93,20 @@ export function Passengers() {
       if (!token) return;
 
       try {
-        const [schoolsResponse, tripsResponse] = await Promise.all([fetchSchools(token), fetchTrips(token)]);
+        const [schoolsResponse, tripsResponse, shiftsResponse] = await Promise.all([
+          fetchSchools(token),
+          fetchTrips(token),
+          fetchShifts(token)
+        ]);
 
         if (!isMounted) return;
         setSchools(Array.isArray(schoolsResponse) ? schoolsResponse : []);
         setTrips(Array.isArray(tripsResponse) ? tripsResponse : []);
+        setShifts(Array.isArray(shiftsResponse) ? shiftsResponse : []);
         setError(null);
       } catch (err) {
         if (!isMounted) return;
-        setError(err instanceof Error ? err.message : "No se pudieron cargar escuelas y salidas.");
+        setError(err instanceof Error ? err.message : "No se pudieron cargar escuelas/salidas/turnos.");
       }
     };
 
@@ -106,6 +126,7 @@ export function Passengers() {
   const isFormReady = useMemo(
     () =>
       Object.values(form).every((value) => value.trim()) &&
+      Number(form.passengerDni) > 0 &&
       Number(form.dni) > 0 &&
       form.email.includes("@") &&
       Number(form.phone) > 0,
@@ -114,7 +135,7 @@ export function Passengers() {
 
   const persist = (next: PassengerItem[]) => {
     setItems(next);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    localStorage.setItem(PASSENGERS_STORAGE_KEY, JSON.stringify(next));
   };
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -123,7 +144,8 @@ export function Passengers() {
 
     const school = schools.find((item) => item.id === Number(form.school_id));
     const trip = trips.find((item) => item.id === Number(form.trip_id));
-    if (!school || !trip) return;
+    const shift = shifts.find((item) => item.id === Number(form.shift_id));
+    if (!school || !trip || !shift) return;
 
     const tripLabel = trip.grade?.name ?? trip.group_name ?? String(trip.year);
 
@@ -131,10 +153,16 @@ export function Passengers() {
       id: Date.now(),
       passengerName: form.passengerName.trim(),
       passengerLastName: form.passengerLastName.trim(),
+      passengerDni: form.passengerDni.trim(),
+      passengerBirthDate: form.passengerBirthDate,
       school_id: school.id,
       school_name: school.name,
       trip_id: trip.id,
       trip_label: tripLabel,
+      shift_id: shift.id,
+      shift_name: shift.name,
+      trip_value: 820000,
+      paid_amount: 0,
       responsible: {
         name: form.responsibleName.trim(),
         lastName: form.responsibleLastName.trim(),
@@ -152,8 +180,11 @@ export function Passengers() {
     setForm({
       passengerName: "",
       passengerLastName: "",
+      passengerDni: "",
+      passengerBirthDate: "",
       school_id: "",
       trip_id: "",
+      shift_id: "",
       responsibleName: "",
       responsibleLastName: "",
       dni: "",
@@ -174,7 +205,7 @@ export function Passengers() {
       <header className="page-header">
         <div>
           <h1>Pasajeros</h1>
-          <p>Asigná cada pasajero a una escuela y a una salida creada previamente.</p>
+          <p>Asigná cada pasajero a escuela, salida y turno.</p>
         </div>
         <span className="badge">{items.length} pasajeros</span>
       </header>
@@ -200,10 +231,32 @@ export function Passengers() {
             />
           </label>
           <label className="field">
+            <span>DNI pasajero</span>
+            <input
+              value={form.passengerDni}
+              onChange={(event) => setForm((current) => ({ ...current, passengerDni: event.target.value }))}
+              required
+            />
+          </label>
+          <label className="field">
+            <span>Fecha nacimiento pasajero</span>
+            <input
+              type="date"
+              value={form.passengerBirthDate}
+              onChange={(event) => setForm((current) => ({ ...current, passengerBirthDate: event.target.value }))}
+              required
+            />
+          </label>
+        </div>
+
+        <div className="form-row">
+          <label className="field">
             <span>Escuela</span>
             <select
               value={form.school_id}
-              onChange={(event) => setForm((current) => ({ ...current, school_id: event.target.value, trip_id: "" }))}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, school_id: event.target.value, trip_id: "" }))
+              }
               required
             >
               <option value="">Seleccionar</option>
@@ -230,6 +283,21 @@ export function Passengers() {
               ))}
             </select>
           </label>
+          <label className="field">
+            <span>Turno</span>
+            <select
+              value={form.shift_id}
+              onChange={(event) => setForm((current) => ({ ...current, shift_id: event.target.value }))}
+              required
+            >
+              <option value="">Seleccionar</option>
+              {shifts.map((shift) => (
+                <option key={shift.id} value={shift.id}>
+                  {shift.name}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
 
         <div className="form-row">
@@ -250,7 +318,7 @@ export function Passengers() {
             />
           </label>
           <label className="field">
-            <span>DNI</span>
+            <span>DNI responsable</span>
             <input
               value={form.dni}
               onChange={(event) => setForm((current) => ({ ...current, dni: event.target.value }))}
@@ -261,7 +329,7 @@ export function Passengers() {
 
         <div className="form-row">
           <label className="field">
-            <span>Fecha de nacimiento</span>
+            <span>Fecha nac. responsable</span>
             <input
               type="date"
               value={form.birthDate}
@@ -318,8 +386,8 @@ export function Passengers() {
         <div className="table-row header passengers-table-row">
           <span>Pasajero</span>
           <span>Escuela / Salida</span>
-          <span>Responsable</span>
-          <span>Contacto</span>
+          <span>Turno</span>
+          <span>DNI / Fecha nac.</span>
           <span>Acción</span>
         </div>
         {items.map((item) => (
@@ -330,11 +398,9 @@ export function Passengers() {
             <span>
               {item.school_name} · {item.trip_label}
             </span>
+            <span>{item.shift_name}</span>
             <span>
-              {item.responsible.name} {item.responsible.lastName} · DNI {item.responsible.dni}
-            </span>
-            <span>
-              {item.responsible.email} · {item.responsible.phone}
+              {item.passengerDni} · {new Date(`${item.passengerBirthDate}T00:00:00`).toLocaleDateString("es-AR")}
             </span>
             <span>
               <button type="button" className="link" onClick={() => removeItem(item.id)}>

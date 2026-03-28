@@ -1,11 +1,5 @@
 import { useMemo, useState } from "react";
-
-interface AccountItem {
-  id: number;
-  passenger: string;
-  tripValue: number;
-  paidAmount: number;
-}
+import { readStoredPassengers } from "./Passengers";
 
 const currencyFormatter = new Intl.NumberFormat("es-AR", {
   style: "currency",
@@ -13,53 +7,79 @@ const currencyFormatter = new Intl.NumberFormat("es-AR", {
   maximumFractionDigits: 0
 });
 
-const initialAccounts: AccountItem[] = [
-  { id: 1, passenger: "Lucía Pérez", tripValue: 820000, paidAmount: 180000 },
-  { id: 2, passenger: "Juan Gómez", tripValue: 820000, paidAmount: 300000 },
-  { id: 3, passenger: "Mora Díaz", tripValue: 820000, paidAmount: 640000 }
-];
-
 export function Accounts() {
-  const [accounts] = useState<AccountItem[]>(initialAccounts);
+  const [query, setQuery] = useState("");
 
-  const rows = useMemo(
-    () =>
-      accounts.map((account) => {
-        const paidPct = Math.max(0, Math.min(100, (account.paidAmount / account.tripValue) * 100));
+  const rows = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return [];
+
+    const passengers = readStoredPassengers();
+
+    return passengers
+      .filter((passenger) => {
+        const fullName = `${passenger.passengerName} ${passenger.passengerLastName}`.toLowerCase();
+        return (
+          fullName.includes(normalized) ||
+          passenger.passengerName.toLowerCase().includes(normalized) ||
+          passenger.passengerLastName.toLowerCase().includes(normalized) ||
+          passenger.passengerDni.includes(normalized)
+        );
+      })
+      .map((passenger) => {
+        const paidPct = Math.max(0, Math.min(100, (passenger.paid_amount / passenger.trip_value) * 100));
         const redWidth = Math.min(30, paidPct);
         const greenWidth = paidPct > 30 ? paidPct - 30 : 0;
         const grayWidth = Math.max(0, 100 - paidPct);
 
         return {
-          ...account,
+          id: passenger.id,
+          passenger: `${passenger.passengerName} ${passenger.passengerLastName}`,
+          dni: passenger.passengerDni,
+          tripValue: passenger.trip_value,
+          paidAmount: passenger.paid_amount,
           paidPct,
           redWidth,
           greenWidth,
           grayWidth,
-          redAmount: Math.min(account.paidAmount, account.tripValue * 0.3),
-          greenAmount: Math.max(0, account.paidAmount - account.tripValue * 0.3),
-          grayAmount: Math.max(0, account.tripValue - account.paidAmount)
+          redAmount: Math.min(passenger.paid_amount, passenger.trip_value * 0.3),
+          greenAmount: Math.max(0, passenger.paid_amount - passenger.trip_value * 0.3),
+          grayAmount: Math.max(0, passenger.trip_value - passenger.paid_amount)
         };
-      }),
-    [accounts]
-  );
+      });
+  }, [query]);
 
   return (
     <section className="stack">
       <header className="page-header">
         <div>
           <h1>Estado de cuenta</h1>
-          <p>
-            Rojo: pago menor al 30% · Verde: pago acumulado sobre el 30% · Gris: saldo restante con montos.
-          </p>
+          <p>Buscá por nombre, apellido o DNI para consultar un pasajero puntual.</p>
         </div>
       </header>
 
+      <div className="card form-grid">
+        <label className="field">
+          <span>Buscar pasajero</span>
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Ej: Pérez o 40111222"
+          />
+        </label>
+      </div>
+
       <div className="card account-list">
+        {!query.trim() ? <p>Ingresá un nombre, apellido o DNI para ver un estado de cuenta puntual.</p> : null}
+
+        {query.trim() && rows.length === 0 ? <p>No se encontraron pasajeros con ese criterio.</p> : null}
+
         {rows.map((row) => (
           <article key={row.id} className="account-item">
             <div className="account-head">
-              <h3>{row.passenger}</h3>
+              <h3>
+                {row.passenger} · DNI {row.dni}
+              </h3>
               <span>
                 Pagó {currencyFormatter.format(row.paidAmount)} de {currencyFormatter.format(row.tripValue)} ({" "}
                 {row.paidPct.toFixed(1)}%)

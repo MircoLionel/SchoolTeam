@@ -23,6 +23,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/trip-passengers" element={<TripPassengers />} />
       <Route
         path="/"
         element={
@@ -57,10 +58,6 @@ export default function App() {
         <Route
           path="passengers"
           element={<Passengers />}
-        />
-        <Route
-          path="trip-passengers"
-          element={<TripPassengers />}
         />
         <Route
           path="coupons/collect"

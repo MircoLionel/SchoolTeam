@@ -359,7 +359,15 @@ a {
 }
 
 .passengers-table-row {
-  grid-template-columns: 1fr 1.4fr 1.4fr 1.2fr 120px;
+  grid-template-columns: 1fr 1.4fr 1fr 1.2fr 120px;
+}
+
+.trip-passengers-row {
+  grid-template-columns: 1fr 1fr 1fr 1.1fr 1.3fr 0.9fr;
+}
+
+.standalone-page {
+  padding: 24px 40px;
 }
 
 .account-list {

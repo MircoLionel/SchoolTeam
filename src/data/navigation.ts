@@ -19,10 +19,7 @@ export const NAV_SECTIONS = [
     links: [
       { to: "/trips", label: "Viajes" },
       { to: "/budgets", label: "Presupuestos" },
-      { to: "/passenger-types", label: "Tipos de pasajero" },
-      { to: "/guardians", label: "Responsables" },
       { to: "/passengers", label: "Pasajeros" },
-      { to: "/installments", label: "Plan de cuotas" },
       { to: "/checkbooks", label: "Chequeras" },
       { to: "/accounts", label: "Estado de cuenta" }
     ]

@@ -5,14 +5,14 @@ import { Dashboard } from "./pages/Dashboard";
 import { Grades } from "./pages/Grades";
 import { Login } from "./pages/Login";
 import { Budgets } from "./pages/Budgets";
-import { PagePlaceholder } from "./pages/PagePlaceholder";
-import { PassengerTypes } from "./pages/PassengerTypes";
 import { Schools } from "./pages/Schools";
 import { Shifts } from "./pages/Shifts";
 import { Trips } from "./pages/Trips";
 import { Role } from "./types/auth";
 import { ModuleCrudPage } from "./pages/ModuleCrudPage";
 import { Cashbox } from "./pages/Cashbox";
+import { Passengers } from "./pages/Passengers";
+import { Accounts } from "./pages/Accounts";
 
 const adminOnly = [Role.ADMIN];
 const adminOffice = [Role.ADMIN, Role.OFFICE];
@@ -54,41 +54,8 @@ export default function App() {
           element={<Budgets />}
         />
         <Route
-          path="passenger-types"
-          element={<PassengerTypes />}
-        />
-        <Route
-          path="guardians"
-          element={
-            <ModuleCrudPage
-              moduleKey="guardians"
-              title="Responsables"
-              description="Alta, edición y seguimiento de responsables."
-              itemLabel="Responsable"
-            />
-          }
-        />
-        <Route
           path="passengers"
-          element={
-            <ModuleCrudPage
-              moduleKey="passengers"
-              title="Pasajeros"
-              description="ABM de pasajeros vinculados a cada viaje."
-              itemLabel="Pasajero"
-            />
-          }
-        />
-        <Route
-          path="installments"
-          element={
-            <ModuleCrudPage
-              moduleKey="installments"
-              title="Plan de cuotas"
-              description="Configuración de planes y seguimiento de cobros."
-              itemLabel="Cuota"
-            />
-          }
+          element={<Passengers />}
         />
         <Route
           path="checkbooks"
@@ -129,14 +96,7 @@ export default function App() {
         />
         <Route
           path="accounts"
-          element={
-            <ModuleCrudPage
-              moduleKey="accounts"
-              title="Estado de cuenta"
-              description="Resumen por pasajero y control de deuda."
-              itemLabel="Cuenta"
-            />
-          }
+          element={<Accounts />}
         />
         <Route
           path="cashbox"

@@ -140,6 +140,14 @@ export async function createBudget(token: string, payload: CreateBudgetPayload) 
   });
 }
 
+export async function updateBudget(token: string, id: number, payload: Partial<CreateBudgetPayload>) {
+  return apiRequest<unknown>(`/budgets/${id}`, {
+    method: "PATCH",
+    token,
+    body: JSON.stringify(payload)
+  });
+}
+
 export async function fetchPassengers(token: string) {
   return apiRequest<unknown>("/passengers", { token });
 }

@@ -9,6 +9,7 @@ interface TripRecord {
   year: number;
   estimated_date?: string | null;
   school?: { name: string } | null;
+  grade?: { id: number; name: string } | null;
 }
 
 interface OptionItem {
@@ -50,14 +51,10 @@ export function Trips() {
           fetchGrades(token)
         ]);
 
-        const tripPayload = Array.isArray(tripsResponse) ? tripsResponse : [];
-        const schoolPayload = Array.isArray(schoolsResponse) ? schoolsResponse : [];
-        const gradePayload = Array.isArray(gradesResponse) ? gradesResponse : [];
-
         if (isMounted) {
-          setTrips(tripPayload);
-          setSchools(schoolPayload);
-          setGrades(gradePayload);
+          setTrips(Array.isArray(tripsResponse) ? tripsResponse : []);
+          setSchools(Array.isArray(schoolsResponse) ? schoolsResponse : []);
+          setGrades(Array.isArray(gradesResponse) ? gradesResponse : []);
           setError(null);
         }
       } catch (err) {
@@ -79,6 +76,8 @@ export function Trips() {
     };
   }, [token]);
 
+  const selectedGrade = grades.find((grade) => String(grade.id) === form.grade_id);
+
   const isFormReady = useMemo(
     () => Boolean(form.school_id && form.grade_id && form.destination.trim() && form.estimated_date),
     [form]
@@ -86,7 +85,7 @@ export function Trips() {
 
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!token || !isFormReady) {
+    if (!token || !isFormReady || !selectedGrade) {
       return;
     }
 
@@ -97,18 +96,18 @@ export function Trips() {
         school_id: Number(form.school_id),
         grade_id: Number(form.grade_id),
         destination: form.destination.trim(),
-        group_name: DEFAULT_GROUP_NAME,
+        group_name: selectedGrade.name,
         year: estimatedDate.getUTCFullYear()
       });
 
-      const createdTrip = Array.isArray(created) ? null : (created as TripRecord);
-      if (createdTrip) {
+      if (!Array.isArray(created)) {
         setTrips((previous) => [
           ...previous,
           {
-            ...createdTrip,
+            ...(created as TripRecord),
             estimated_date: form.estimated_date,
-            group_name: createdTrip.group_name || DEFAULT_GROUP_NAME
+            group_name: selectedGrade.name,
+            grade: { id: selectedGrade.id, name: selectedGrade.name }
           }
         ]);
       }
@@ -133,7 +132,7 @@ export function Trips() {
       <header className="page-header">
         <div>
           <h1>Viajes</h1>
-          <p>Grupo salida unificado para todos los grados, turnos y pasajeros.</p>
+          <p>Grupo/salida asociado solamente al grado o año.</p>
         </div>
         <button type="button" className="btn" onClick={() => setIsCreating((current) => !current)}>
           {isCreating ? "Cancelar" : "Nuevo"}
@@ -159,7 +158,7 @@ export function Trips() {
               </select>
             </label>
             <label className="field">
-              <span>Grado de referencia</span>
+              <span>Grupo/salida (grado o año)</span>
               <select
                 value={form.grade_id}
                 onChange={(event) => setForm((current) => ({ ...current, grade_id: event.target.value }))}
@@ -211,27 +210,34 @@ export function Trips() {
         <p>{isLoading ? "Cargando viajes..." : "Viajes registrados."}</p>
         {error ? <p className="form-error">{error}</p> : null}
         <div className="placeholder-table trips-table">
-          <div className="table-row header">
+          <div className="table-row header trips-row">
             <span>Escuela</span>
-            <span>Grupo salida</span>
+            <span>Grupo/salida</span>
             <span>Descripción</span>
+            <span>Pasajeros</span>
           </div>
           {!isLoading && trips.length === 0 ? (
-            <div className="table-row">
+            <div className="table-row trips-row">
               <span>No hay viajes cargados.</span>
-              <span>Agregá un viaje para comenzar.</span>
+              <span>-</span>
+              <span>-</span>
               <span>-</span>
             </div>
           ) : null}
           {trips.map((trip) => (
-            <div key={trip.id} className="table-row">
+            <div key={trip.id} className="table-row trips-row">
               <span>{trip.school?.name ?? "Sin escuela"}</span>
-              <span>{trip.group_name || DEFAULT_GROUP_NAME}</span>
+              <span>{trip.grade?.name ?? trip.group_name || String(trip.year)}</span>
               <span>
                 {trip.destination} - Fecha estimada:{" "}
                 {trip.estimated_date
                   ? new Date(`${trip.estimated_date}T00:00:00`).toLocaleDateString("es-AR")
                   : String(trip.year)}
+              </span>
+              <span>
+                <a href={`/trip-passengers?tripId=${trip.id}`} target="_blank" rel="noreferrer">
+                  Ver pasajeros
+                </a>
               </span>
             </div>
           ))}

@@ -1,4 +1,6 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { fetchSchools, fetchTrips } from "../services/api";
+import { useAuth } from "../state/AuthContext";
 
 interface Responsible {
   name: string;
@@ -15,44 +17,50 @@ interface PassengerItem {
   id: number;
   passengerName: string;
   passengerLastName: string;
+  school_id: number;
+  school_name: string;
+  trip_id: number;
+  trip_label: string;
   responsible: Responsible;
+}
+
+interface SchoolItem {
+  id: number;
+  name: string;
+}
+
+interface TripItem {
+  id: number;
+  group_name: string;
+  year: number;
+  school_id?: number;
+  school?: { id: number; name: string } | null;
+  grade?: { id: number; name: string } | null;
 }
 
 const STORAGE_KEY = "schoolteam.passengers.with-responsible";
 
-const initialData: PassengerItem[] = [
-  {
-    id: 1,
-    passengerName: "Lucía",
-    passengerLastName: "Pérez",
-    responsible: {
-      name: "Carla",
-      lastName: "Pérez",
-      dni: "27111222",
-      birthDate: "1986-04-21",
-      email: "carla.perez@email.com",
-      phone: "1134567890",
-      address: "San Martín 1234",
-      city: "La Plata"
-    }
-  }
-];
-
 function readStoredItems(): PassengerItem[] {
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return initialData;
+  if (!raw) return [];
   try {
     return JSON.parse(raw) as PassengerItem[];
   } catch {
-    return initialData;
+    return [];
   }
 }
 
 export function Passengers() {
+  const { token } = useAuth();
   const [items, setItems] = useState<PassengerItem[]>(readStoredItems);
+  const [schools, setSchools] = useState<SchoolItem[]>([]);
+  const [trips, setTrips] = useState<TripItem[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
     passengerName: "",
     passengerLastName: "",
+    school_id: "",
+    trip_id: "",
     responsibleName: "",
     responsibleLastName: "",
     dni: "",
@@ -62,6 +70,38 @@ export function Passengers() {
     address: "",
     city: ""
   });
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadOptions = async () => {
+      if (!token) return;
+
+      try {
+        const [schoolsResponse, tripsResponse] = await Promise.all([fetchSchools(token), fetchTrips(token)]);
+
+        if (!isMounted) return;
+        setSchools(Array.isArray(schoolsResponse) ? schoolsResponse : []);
+        setTrips(Array.isArray(tripsResponse) ? tripsResponse : []);
+        setError(null);
+      } catch (err) {
+        if (!isMounted) return;
+        setError(err instanceof Error ? err.message : "No se pudieron cargar escuelas y salidas.");
+      }
+    };
+
+    loadOptions();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [token]);
+
+  const filteredTrips = useMemo(() => {
+    if (!form.school_id) return [];
+    const schoolId = Number(form.school_id);
+    return trips.filter((trip) => (trip.school_id ?? trip.school?.id) === schoolId);
+  }, [form.school_id, trips]);
 
   const isFormReady = useMemo(
     () =>
@@ -81,10 +121,20 @@ export function Passengers() {
     event.preventDefault();
     if (!isFormReady) return;
 
+    const school = schools.find((item) => item.id === Number(form.school_id));
+    const trip = trips.find((item) => item.id === Number(form.trip_id));
+    if (!school || !trip) return;
+
+    const tripLabel = trip.grade?.name ?? trip.group_name ?? String(trip.year);
+
     const nextItem: PassengerItem = {
       id: Date.now(),
       passengerName: form.passengerName.trim(),
       passengerLastName: form.passengerLastName.trim(),
+      school_id: school.id,
+      school_name: school.name,
+      trip_id: trip.id,
+      trip_label: tripLabel,
       responsible: {
         name: form.responsibleName.trim(),
         lastName: form.responsibleLastName.trim(),
@@ -102,6 +152,8 @@ export function Passengers() {
     setForm({
       passengerName: "",
       passengerLastName: "",
+      school_id: "",
+      trip_id: "",
       responsibleName: "",
       responsibleLastName: "",
       dni: "",
@@ -122,10 +174,12 @@ export function Passengers() {
       <header className="page-header">
         <div>
           <h1>Pasajeros</h1>
-          <p>Cada pasajero incluye su responsable como tipo de dato obligatorio.</p>
+          <p>Asigná cada pasajero a una escuela y a una salida creada previamente.</p>
         </div>
         <span className="badge">{items.length} pasajeros</span>
       </header>
+
+      {error ? <p className="form-error">{error}</p> : null}
 
       <form className="card form-grid" onSubmit={onSubmit}>
         <div className="form-row">
@@ -144,6 +198,37 @@ export function Passengers() {
               onChange={(event) => setForm((current) => ({ ...current, passengerLastName: event.target.value }))}
               required
             />
+          </label>
+          <label className="field">
+            <span>Escuela</span>
+            <select
+              value={form.school_id}
+              onChange={(event) => setForm((current) => ({ ...current, school_id: event.target.value, trip_id: "" }))}
+              required
+            >
+              <option value="">Seleccionar</option>
+              {schools.map((school) => (
+                <option key={school.id} value={school.id}>
+                  {school.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Salida</span>
+            <select
+              value={form.trip_id}
+              onChange={(event) => setForm((current) => ({ ...current, trip_id: event.target.value }))}
+              required
+              disabled={!form.school_id}
+            >
+              <option value="">Seleccionar</option>
+              {filteredTrips.map((trip) => (
+                <option key={trip.id} value={trip.id}>
+                  {trip.grade?.name ?? trip.group_name ?? trip.year}
+                </option>
+              ))}
+            </select>
           </label>
         </div>
 
@@ -232,9 +317,9 @@ export function Passengers() {
       <div className="card placeholder-table">
         <div className="table-row header passengers-table-row">
           <span>Pasajero</span>
+          <span>Escuela / Salida</span>
           <span>Responsable</span>
           <span>Contacto</span>
-          <span>Domicilio</span>
           <span>Acción</span>
         </div>
         {items.map((item) => (
@@ -243,13 +328,13 @@ export function Passengers() {
               {item.passengerName} {item.passengerLastName}
             </span>
             <span>
+              {item.school_name} · {item.trip_label}
+            </span>
+            <span>
               {item.responsible.name} {item.responsible.lastName} · DNI {item.responsible.dni}
             </span>
             <span>
               {item.responsible.email} · {item.responsible.phone}
-            </span>
-            <span>
-              {item.responsible.address}, {item.responsible.city}
             </span>
             <span>
               <button type="button" className="link" onClick={() => removeItem(item.id)}>

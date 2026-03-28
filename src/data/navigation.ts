@@ -20,7 +20,6 @@ export const NAV_SECTIONS = [
       { to: "/trips", label: "Viajes" },
       { to: "/budgets", label: "Presupuestos" },
       { to: "/passengers", label: "Pasajeros" },
-      { to: "/checkbooks", label: "Chequeras" },
       { to: "/accounts", label: "Estado de cuenta" }
     ]
   },

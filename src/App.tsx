@@ -13,6 +13,7 @@ import { ModuleCrudPage } from "./pages/ModuleCrudPage";
 import { Cashbox } from "./pages/Cashbox";
 import { Passengers } from "./pages/Passengers";
 import { Accounts } from "./pages/Accounts";
+import { TripPassengers } from "./pages/TripPassengers";
 
 const adminOnly = [Role.ADMIN];
 const adminOffice = [Role.ADMIN, Role.OFFICE];
@@ -58,15 +59,8 @@ export default function App() {
           element={<Passengers />}
         />
         <Route
-          path="checkbooks"
-          element={
-            <ModuleCrudPage
-              moduleKey="checkbooks"
-              title="Chequeras"
-              description="Control de emisión y estado de chequeras."
-              itemLabel="Chequera"
-            />
-          }
+          path="trip-passengers"
+          element={<TripPassengers />}
         />
         <Route
           path="coupons/collect"

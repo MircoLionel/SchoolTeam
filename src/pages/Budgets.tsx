@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { createBudget, fetchBudgets, fetchTrips } from "../services/api";
+import { createBudget, fetchBudgets, fetchTrips, updateBudget } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 
 interface BudgetSchool {
@@ -40,6 +40,7 @@ export function Budgets() {
   const [error, setError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [form, setForm] = useState({
     trip_id: "",
     base_price_100: "",
@@ -157,6 +158,24 @@ export function Budgets() {
       setError(err instanceof Error ? err.message : "No se pudo crear el presupuesto.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleStatusChange = async (id: number, status: BudgetItem["status"]) => {
+    if (!token) return;
+
+    setUpdatingId(id);
+    const previous = budgets;
+    setBudgets((current) => current.map((item) => (item.id === id ? { ...item, status } : item)));
+
+    try {
+      await updateBudget(token, id, { status });
+      setError(null);
+    } catch (err) {
+      setBudgets(previous);
+      setError(err instanceof Error ? err.message : "No se pudo actualizar el estado del presupuesto.");
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -285,7 +304,19 @@ export function Budgets() {
               <span>{row.destination}</span>
               <span>{row.basedOnStudents}</span>
               <span>{row.basePrice}</span>
-              <span>{row.status}</span>
+              <span>
+                <select
+                  value={row.status}
+                  onChange={(event) => handleStatusChange(row.id, event.target.value as BudgetItem["status"])}
+                  disabled={updatingId === row.id}
+                >
+                  {budgetStatusOptions.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </span>
             </div>
           ))}
         </div>

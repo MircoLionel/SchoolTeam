@@ -227,7 +227,7 @@ export function Trips() {
           {trips.map((trip) => (
             <div key={trip.id} className="table-row trips-row">
               <span>{trip.school?.name ?? "Sin escuela"}</span>
-              <span>{trip.grade?.name ?? trip.group_name || String(trip.year)}</span>
+              <span>{trip.grade?.name ?? trip.group_name ?? String(trip.year)}</span>
               <span>
                 {trip.destination} - Fecha estimada:{" "}
                 {trip.estimated_date

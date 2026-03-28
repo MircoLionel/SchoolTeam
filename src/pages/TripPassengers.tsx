@@ -7,6 +7,14 @@ const currencyFormatter = new Intl.NumberFormat("es-AR", {
   maximumFractionDigits: 0
 });
 
+function splitIntoInstallments(paidAmount: number, count: number) {
+  if (count <= 0) return [];
+  const perInstallment = paidAmount > 0 ? Math.floor(paidAmount / count) : 0;
+  return Array.from({ length: count }, (_, index) =>
+    index === count - 1 ? paidAmount - perInstallment * (count - 1) : perInstallment
+  );
+}
+
 export function TripPassengers() {
   const params = new URLSearchParams(window.location.search);
   const tripId = Number(params.get("tripId") ?? "0");
@@ -16,6 +24,53 @@ export function TripPassengers() {
     return all.filter((item) => item.trip_id === tripId);
   }, [tripId]);
 
+  const exportExcel = () => {
+    const headers = [
+      "Nombre y Apellido",
+      "DNI",
+      "Fecha de Nac",
+      "Precio",
+      "Cuota 1",
+      "Cuota 2",
+      "Cuota 3",
+      "Cuota 4",
+      "Cuota 5",
+      "Cuota 6",
+      "Cuota 7",
+      "Cuota 8",
+      "Saldo",
+      "Turno"
+    ];
+
+    const rows = passengers.map((passenger) => {
+      const installments = splitIntoInstallments(passenger.paid_amount, 8);
+      const remaining = Math.max(0, passenger.trip_value - passenger.paid_amount);
+      return [
+        `${passenger.passengerName} ${passenger.passengerLastName}`,
+        passenger.passengerDni,
+        new Date(`${passenger.passengerBirthDate}T00:00:00`).toLocaleDateString("es-AR"),
+        passenger.trip_value,
+        ...installments,
+        remaining,
+        passenger.shift_name
+      ];
+    });
+
+    const csv = [headers, ...rows]
+      .map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(";"))
+      .join("\n");
+
+    const blob = new Blob([`\uFEFF${csv}`], { type: "application/vnd.ms-excel;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `pasajeros-salida-${tripId}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <section className="stack standalone-page">
       <header className="page-header">
@@ -23,6 +78,9 @@ export function TripPassengers() {
           <h1>Pasajeros de la salida #{tripId}</h1>
           <p>Listado de chicos asignados al viaje seleccionado.</p>
         </div>
+        <button type="button" className="btn" onClick={exportExcel}>
+          Exportar a Excel
+        </button>
       </header>
 
       <div className="card placeholder-table">

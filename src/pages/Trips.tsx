@@ -17,13 +17,33 @@ interface OptionItem {
   name: string;
 }
 
-const DEFAULT_GROUP_NAME = "Todos los grados · Todos los turnos · Todos los pasajeros";
+interface TripPriceSettings {
+  [tripId: string]: number;
+}
+
+export const TRIP_PRICE_STORAGE_KEY = "schoolteam.trip.price.settings";
+
+export function readTripPriceSettings(): TripPriceSettings {
+  const raw = localStorage.getItem(TRIP_PRICE_STORAGE_KEY);
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw) as TripPriceSettings;
+  } catch {
+    return {};
+  }
+}
+
+function saveTripPriceSettings(next: TripPriceSettings) {
+  localStorage.setItem(TRIP_PRICE_STORAGE_KEY, JSON.stringify(next));
+}
 
 export function Trips() {
   const { token } = useAuth();
   const [trips, setTrips] = useState<TripRecord[]>([]);
   const [schools, setSchools] = useState<OptionItem[]>([]);
   const [grades, setGrades] = useState<OptionItem[]>([]);
+  const [tripPrices, setTripPrices] = useState<TripPriceSettings>(readTripPriceSettings);
+  const [visibleAdvanced, setVisibleAdvanced] = useState<Record<number, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -127,6 +147,14 @@ export function Trips() {
     }
   };
 
+  const updateTripPrice = (tripId: number, value: string) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) return;
+    const next = { ...tripPrices, [tripId]: parsed };
+    setTripPrices(next);
+    saveTripPriceSettings(next);
+  };
+
   return (
     <section className="stack">
       <header className="page-header">
@@ -225,7 +253,7 @@ export function Trips() {
             </div>
           ) : null}
           {trips.map((trip) => (
-            <div key={trip.id} className="table-row trips-row">
+            <div key={trip.id} className="table-row trips-row trip-row-extended">
               <span>{trip.school?.name ?? "Sin escuela"}</span>
               <span>{trip.grade?.name ?? trip.group_name ?? String(trip.year)}</span>
               <span>
@@ -238,6 +266,29 @@ export function Trips() {
                 <a href={`/trip-passengers?tripId=${trip.id}`} target="_blank" rel="noreferrer">
                   Ver pasajeros
                 </a>
+                <button
+                  type="button"
+                  className="link"
+                  onClick={() =>
+                    setVisibleAdvanced((current) => ({
+                      ...current,
+                      [trip.id]: !current[trip.id]
+                    }))
+                  }
+                >
+                  Opciones ocultas
+                </button>
+                {visibleAdvanced[trip.id] ? (
+                  <label className="field inline-field">
+                    <span>Precio viaje por chico</span>
+                    <input
+                      type="number"
+                      min="1"
+                      defaultValue={tripPrices[trip.id] ?? 820000}
+                      onBlur={(event) => updateTripPrice(trip.id, event.target.value)}
+                    />
+                  </label>
+                ) : null}
               </span>
             </div>
           ))}

@@ -362,6 +362,22 @@ a {
   grid-template-columns: 1fr 1.4fr 1fr 1.2fr 120px;
 }
 
+.passengers-table-row-extended {
+  grid-template-columns: 1fr 1.3fr 0.8fr 1fr 1.2fr 180px;
+}
+
+.checkbox-row {
+  align-items: center;
+}
+
+.inline-field {
+  max-width: 280px;
+}
+
+.trip-row-extended {
+  align-items: start;
+}
+
 .trip-passengers-row {
   grid-template-columns: 1fr 1fr 1fr 1.1fr 1.3fr 0.9fr;
 }

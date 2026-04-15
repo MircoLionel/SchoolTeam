@@ -10,6 +10,7 @@ const currencyFormatter = new Intl.NumberFormat("es-AR", {
 export function Accounts() {
   const [query, setQuery] = useState("");
   const [selectedSchool, setSelectedSchool] = useState<string>("all");
+  const [selectedTrip, setSelectedTrip] = useState("");
 
   const passengers = useMemo(() => readStoredPassengers(), []);
 
@@ -20,6 +21,23 @@ export function Accounts() {
     return ["all", ...schools];
   }, [passengers]);
 
+  const tripOptions = useMemo(() => {
+    const scoped = selectedSchool === "all"
+      ? passengers
+      : passengers.filter((passenger) => passenger.school_name === selectedSchool);
+
+    const unique = new Map<number, string>();
+    scoped.forEach((passenger) => {
+      if (!unique.has(passenger.trip_id)) {
+        unique.set(passenger.trip_id, passenger.trip_label);
+      }
+    });
+
+    return Array.from(unique.entries())
+      .map(([id, label]) => ({ id, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "es"));
+  }, [passengers, selectedSchool]);
+
   const rows = useMemo(() => {
     const normalized = query.trim().toLowerCase();
 
@@ -27,6 +45,7 @@ export function Accounts() {
       .filter((passenger) => {
         const isSchoolMatch = selectedSchool === "all" || passenger.school_name === selectedSchool;
         if (!isSchoolMatch) return false;
+        if (!selectedTrip || passenger.trip_id !== Number(selectedTrip)) return false;
         if (!normalized) return true;
         const fullName = `${passenger.passengerName} ${passenger.passengerLastName}`.toLowerCase();
         return (
@@ -59,7 +78,7 @@ export function Accounts() {
           schoolName: passenger.school_name
         };
       });
-  }, [passengers, query, selectedSchool]);
+  }, [passengers, query, selectedSchool, selectedTrip]);
 
   const printCheckbook = (row: (typeof rows)[number]) => {
     const quotaLines = row.installments
@@ -100,12 +119,26 @@ export function Accounts() {
               key={tab}
               type="button"
               className={`tab-btn ${selectedSchool === tab ? "active" : ""}`}
-              onClick={() => setSelectedSchool(tab)}
+              onClick={() => {
+                setSelectedSchool(tab);
+                setSelectedTrip("");
+              }}
             >
               {tab === "all" ? "Todas las escuelas" : tab}
             </button>
           ))}
         </div>
+        <label className="field">
+          <span>Salida (viaje)</span>
+          <select value={selectedTrip} onChange={(event) => setSelectedTrip(event.target.value)} required>
+            <option value="">Seleccionar salida</option>
+            {tripOptions.map((trip) => (
+              <option key={trip.id} value={trip.id}>
+                {trip.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="field">
           <span>Buscar pasajero</span>
           <input
@@ -117,7 +150,8 @@ export function Accounts() {
       </div>
 
       <div className="card account-list">
-        {rows.length === 0 ? <p>No hay pasajeros para el filtro seleccionado.</p> : null}
+        {!selectedTrip ? <p>Seleccioná una salida para ver estado de cuenta e imprimir chequeras.</p> : null}
+        {selectedTrip && rows.length === 0 ? <p>No hay pasajeros para el filtro seleccionado.</p> : null}
 
         {rows.map((row) => (
           <article key={row.id} className="account-item">

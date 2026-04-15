@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { getPassengerBalance, readStoredPassengers } from "../state/passengersStorage";
 
 const currencyFormatter = new Intl.NumberFormat("es-AR", {
@@ -8,6 +9,7 @@ const currencyFormatter = new Intl.NumberFormat("es-AR", {
 });
 
 export function Accounts() {
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [selectedSchool, setSelectedSchool] = useState<string>("all");
   const [selectedTrip, setSelectedTrip] = useState("");
@@ -104,6 +106,10 @@ export function Accounts() {
     popup.print();
   };
 
+  const editPassenger = (id: number) => {
+    navigate(`/passengers?editPassengerId=${id}`);
+  };
+
   return (
     <section className="stack">
       <header className="page-header">
@@ -181,7 +187,10 @@ export function Accounts() {
               <span>
                 <strong>Resta cobrar:</strong> {currencyFormatter.format(row.remainingAmount)}
               </span>
-              <button type="button" className="btn" onClick={() => printCheckbook(row)}>Imprimir chequera</button>
+              <div className="account-actions">
+                <button type="button" className="btn" onClick={() => printCheckbook(row)}>Imprimir chequera</button>
+                <button type="button" className="btn" onClick={() => editPassenger(row.id)}>Editar pasajero</button>
+              </div>
             </div>
           </article>
         ))}

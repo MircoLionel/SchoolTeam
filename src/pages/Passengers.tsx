@@ -120,7 +120,6 @@ export function Passengers() {
     const count = Math.max(1, Number(form.numInstallments));
     const installmentSum = installments.slice(0, count).reduce((acc, value) => acc + value, 0);
     const finalInstallments = installmentSum > 0 ? installments.slice(0, count) : distributeInstallments(tripValue, count);
-    const paidAmount = finalInstallments.reduce((acc, value) => acc + value, 0);
 
     const nextItem: PassengerItem = {
       id: editingId ?? Date.now(),
@@ -137,7 +136,7 @@ export function Passengers() {
       isAdultCompanion: form.isAdultCompanion,
       hasSpecialPrice: form.hasSpecialPrice,
       trip_value: tripValue,
-      paid_amount: Math.min(paidAmount, tripValue),
+      paid_amount: 0,
       num_installments: count,
       installments: finalInstallments,
       responsible: {

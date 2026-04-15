@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { readStoredPassengers, updatePassengerById } from "../state/passengersStorage";
+import { useAuth } from "../state/AuthContext";
+import { appendPassengerAudit, getPassengerBalance, readStoredPassengers, updatePassengerById } from "../state/passengersStorage";
 
 const currencyFormatter = new Intl.NumberFormat("es-AR", {
   style: "currency",
@@ -8,6 +9,7 @@ const currencyFormatter = new Intl.NumberFormat("es-AR", {
 });
 
 export function TripPassengers() {
+  const { user } = useAuth();
   const params = new URLSearchParams(window.location.search);
   const tripId = Number(params.get("tripId") ?? "0");
   const [version, setVersion] = useState(0);
@@ -25,9 +27,11 @@ export function TripPassengers() {
     ];
 
     const rows = passengers.map((passenger) => {
-      const installments = Array.from({ length: 8 }, (_, index) => passenger.installments[index] ?? 0);
-      const paid = installments.reduce((acc, value) => acc + value, 0);
-      const remaining = Math.max(0, passenger.trip_value - paid);
+      const installments = Array.from(
+        { length: passenger.num_installments },
+        (_, index) => passenger.installments[index] ?? 0
+      );
+      const remaining = getPassengerBalance(passenger);
       return [
         `${passenger.passengerName} ${passenger.passengerLastName}`,
         passenger.passengerDni,
@@ -60,7 +64,26 @@ export function TripPassengers() {
   const updatePrice = (passengerId: number, value: string) => {
     const parsed = Number(value);
     if (!Number.isFinite(parsed) || parsed <= 0) return;
-    updatePassengerById(passengerId, (item) => ({ ...item, trip_value: parsed }));
+    const updated = updatePassengerById(passengerId, (item) => ({
+      ...item,
+      trip_value: parsed,
+      last_modified_by: user?.name ?? "Sistema",
+      last_modified_at: new Date().toISOString(),
+      last_modified_action: "price_update"
+    }));
+    const updatedPassenger = updated.find((item) => item.id === passengerId);
+    if (updatedPassenger) {
+      appendPassengerAudit({
+        id: Date.now(),
+        passengerId,
+        passengerLabel: `${updatedPassenger.passengerName} ${updatedPassenger.passengerLastName}`,
+        action: "price_update",
+        actorName: user?.name ?? "Sistema",
+        actorRole: user?.role ?? "UNKNOWN",
+        createdAt: new Date().toISOString(),
+        detail: `Cambio de precio de viaje a ${currencyFormatter.format(parsed)}`
+      });
+    }
     setVersion((current) => current + 1);
   };
 
@@ -82,7 +105,7 @@ export function TripPassengers() {
           <span>Fecha de nacimiento</span>
           <span>Precio viaje</span>
           <span>Cuotas</span>
-          <span>Estado de cuenta (restante)</span>
+          <span>Estado de cuenta</span>
           <span>Turno</span>
         </div>
 
@@ -94,8 +117,7 @@ export function TripPassengers() {
         ) : null}
 
         {passengers.map((passenger) => {
-          const paid = passenger.installments.reduce((acc, value) => acc + value, 0);
-          const remaining = Math.max(0, passenger.trip_value - paid);
+          const remaining = getPassengerBalance(passenger);
           return (
             <div key={passenger.id} className="table-row trip-passengers-row-extended">
               <span>{passenger.passengerName}</span>

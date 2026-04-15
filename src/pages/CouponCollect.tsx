@@ -49,13 +49,13 @@ export function CouponCollect() {
     const selected = current.find((item) => item.id === passengerId);
     if (!selected) return;
 
-    const nextPaid = Math.min(selected.trip_value, selected.paid_amount + payment);
+    const nextPaid = selected.paid_amount + payment;
 
     const nextPassengers = current.map((item) =>
       item.id === passengerId
         ? {
             ...item,
-            paid_amount: Math.min(nextPaid, item.trip_value),
+            paid_amount: nextPaid,
             last_modified_by: user?.name ?? "Sistema",
             last_modified_at: new Date().toISOString(),
             last_modified_action: "payment" as const

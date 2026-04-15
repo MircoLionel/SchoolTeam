@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { readStoredPassengers, updatePassengerById } from "../state/passengersStorage";
+import { getPassengerBalance, readStoredPassengers, updatePassengerById } from "../state/passengersStorage";
 
 const currencyFormatter = new Intl.NumberFormat("es-AR", {
   style: "currency",
@@ -25,9 +25,11 @@ export function TripPassengers() {
     ];
 
     const rows = passengers.map((passenger) => {
-      const installments = Array.from({ length: 8 }, (_, index) => passenger.installments[index] ?? 0);
-      const paid = installments.reduce((acc, value) => acc + value, 0);
-      const remaining = Math.max(0, passenger.trip_value - paid);
+      const installments = Array.from(
+        { length: passenger.num_installments },
+        (_, index) => passenger.installments[index] ?? 0
+      );
+      const remaining = getPassengerBalance(passenger);
       return [
         `${passenger.passengerName} ${passenger.passengerLastName}`,
         passenger.passengerDni,
@@ -82,7 +84,7 @@ export function TripPassengers() {
           <span>Fecha de nacimiento</span>
           <span>Precio viaje</span>
           <span>Cuotas</span>
-          <span>Estado de cuenta (restante)</span>
+          <span>Estado de cuenta</span>
           <span>Turno</span>
         </div>
 
@@ -94,8 +96,7 @@ export function TripPassengers() {
         ) : null}
 
         {passengers.map((passenger) => {
-          const paid = passenger.installments.reduce((acc, value) => acc + value, 0);
-          const remaining = Math.max(0, passenger.trip_value - paid);
+          const remaining = getPassengerBalance(passenger);
           return (
             <div key={passenger.id} className="table-row trip-passengers-row-extended">
               <span>{passenger.passengerName}</span>

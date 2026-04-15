@@ -37,12 +37,68 @@ const initialForm = {
   city: ""
 };
 
+const PASSENGER_FORM_TEMPLATE_KEY = "schoolteam.passengers.form-template";
+
+type PassengerForm = typeof initialForm;
+
+interface PassengerFormTemplate {
+  school_id: string;
+  trip_id: string;
+  shift_id: string;
+  isAdultCompanion: boolean;
+  hasSpecialPrice: boolean;
+  specialPrice: string;
+  numInstallments: string;
+  installments: number[];
+}
+
 function distributeInstallments(total: number, count: number) {
   const safeCount = Math.max(1, count);
   const base = Math.floor(total / safeCount);
   return Array.from({ length: safeCount }, (_, index) =>
     index === safeCount - 1 ? total - base * (safeCount - 1) : base
   );
+}
+
+function readFormTemplate(): PassengerFormTemplate | null {
+  const raw = sessionStorage.getItem(PASSENGER_FORM_TEMPLATE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<PassengerFormTemplate>;
+    return {
+      school_id: String(parsed.school_id ?? ""),
+      trip_id: String(parsed.trip_id ?? ""),
+      shift_id: String(parsed.shift_id ?? ""),
+      isAdultCompanion: Boolean(parsed.isAdultCompanion),
+      hasSpecialPrice: Boolean(parsed.hasSpecialPrice),
+      specialPrice: String(parsed.specialPrice ?? ""),
+      numInstallments: String(parsed.numInstallments ?? "8"),
+      installments: Array.isArray(parsed.installments)
+        ? parsed.installments.map((value) => Number(value ?? 0))
+        : Array.from({ length: 8 }, () => 0)
+    };
+  } catch {
+    return null;
+  }
+}
+
+function mergeFormWithTemplate(template: PassengerFormTemplate | null): PassengerForm {
+  if (!template) return initialForm;
+  return {
+    ...initialForm,
+    school_id: template.school_id,
+    trip_id: template.trip_id,
+    shift_id: template.shift_id,
+    isAdultCompanion: template.isAdultCompanion,
+    hasSpecialPrice: template.hasSpecialPrice,
+    specialPrice: template.specialPrice,
+    numInstallments: template.numInstallments
+  };
+}
+
+function getInstallmentsFromTemplate(template: PassengerFormTemplate | null): number[] {
+  if (!template?.installments?.length) return Array.from({ length: 8 }, () => 0);
+  return template.installments;
 }
 
 export function Passengers() {
@@ -53,8 +109,8 @@ export function Passengers() {
   const [shifts, setShifts] = useState<ShiftItem[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState(initialForm);
-  const [installments, setInstallments] = useState<number[]>(Array.from({ length: 8 }, () => 0));
+  const [form, setForm] = useState<PassengerForm>(() => mergeFormWithTemplate(readFormTemplate()));
+  const [installments, setInstallments] = useState<number[]>(() => getInstallmentsFromTemplate(readFormTemplate()));
 
   useEffect(() => {
     let isMounted = true;
@@ -84,6 +140,39 @@ export function Passengers() {
     return trips.filter((trip) => (trip.school_id ?? trip.school?.id) === schoolId);
   }, [form.school_id, trips]);
 
+  function computeTripValue(tripId: number) {
+    const basePrice = readTripPriceSettings()[tripId] ?? 820000;
+    if (form.hasSpecialPrice) return Number(form.specialPrice);
+    if (form.isAdultCompanion) return Math.round(basePrice * 0.3);
+    return basePrice;
+  }
+
+  const selectedTrip = useMemo(
+    () => trips.find((trip) => trip.id === Number(form.trip_id)),
+    [form.trip_id, trips]
+  );
+
+  const tripValueForSummary = useMemo(() => {
+    if (!form.trip_id) return 0;
+    return computeTripValue(Number(form.trip_id));
+  }, [form.trip_id, form.hasSpecialPrice, form.specialPrice, form.isAdultCompanion]);
+
+  const visibleInstallmentsCount = Math.max(1, Number(form.numInstallments) || 1);
+  const installmentsTotal = useMemo(
+    () => installments.slice(0, visibleInstallmentsCount).reduce((acc, value) => acc + Number(value || 0), 0),
+    [installments, visibleInstallmentsCount]
+  );
+  const remainingInstallmentsAmount = Math.max(0, tripValueForSummary - installmentsTotal);
+  const nextEmptyInstallmentIndex = installments
+    .slice(0, visibleInstallmentsCount)
+    .findIndex((value) => Number(value || 0) <= 0);
+  const suggestionSlots = nextEmptyInstallmentIndex >= 0
+    ? visibleInstallmentsCount - nextEmptyInstallmentIndex
+    : 1;
+  const suggestedInstallment = suggestionSlots > 0
+    ? Math.ceil(remainingInstallmentsAmount / suggestionSlots)
+    : 0;
+
   const isFormReady = useMemo(() => {
     const basic = form.passengerName.trim() && form.passengerLastName.trim() && form.passengerDni.trim() &&
       form.passengerBirthDate && form.school_id && form.trip_id && form.shift_id &&
@@ -97,13 +186,6 @@ export function Passengers() {
   const persist = (next: PassengerItem[]) => {
     setItems(next);
     saveStoredPassengers(next);
-  };
-
-  const computeTripValue = (tripId: number) => {
-    const basePrice = readTripPriceSettings()[tripId] ?? 820000;
-    if (form.hasSpecialPrice) return Number(form.specialPrice);
-    if (form.isAdultCompanion) return Math.round(basePrice * 0.3);
-    return basePrice;
   };
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -120,7 +202,6 @@ export function Passengers() {
     const count = Math.max(1, Number(form.numInstallments));
     const installmentSum = installments.slice(0, count).reduce((acc, value) => acc + value, 0);
     const finalInstallments = installmentSum > 0 ? installments.slice(0, count) : distributeInstallments(tripValue, count);
-    const paidAmount = finalInstallments.reduce((acc, value) => acc + value, 0);
 
     const nextItem: PassengerItem = {
       id: editingId ?? Date.now(),
@@ -137,7 +218,7 @@ export function Passengers() {
       isAdultCompanion: form.isAdultCompanion,
       hasSpecialPrice: form.hasSpecialPrice,
       trip_value: tripValue,
-      paid_amount: Math.min(paidAmount, tripValue),
+      paid_amount: 0,
       num_installments: count,
       installments: finalInstallments,
       responsible: {
@@ -158,9 +239,21 @@ export function Passengers() {
       persist([nextItem, ...items]);
     }
 
+    const template: PassengerFormTemplate = {
+      school_id: form.school_id,
+      trip_id: form.trip_id,
+      shift_id: form.shift_id,
+      isAdultCompanion: form.isAdultCompanion,
+      hasSpecialPrice: form.hasSpecialPrice,
+      specialPrice: form.specialPrice,
+      numInstallments: String(count),
+      installments: finalInstallments
+    };
+    sessionStorage.setItem(PASSENGER_FORM_TEMPLATE_KEY, JSON.stringify(template));
+
     setEditingId(null);
-    setForm(initialForm);
-    setInstallments(Array.from({ length: 8 }, () => 0));
+    setForm(mergeFormWithTemplate(template));
+    setInstallments(finalInstallments);
   };
 
   const startEdit = (item: PassengerItem) => {
@@ -191,7 +284,7 @@ export function Passengers() {
 
   const removeItem = (id: number) => persist(items.filter((item) => item.id !== id));
 
-  const installmentInputs = Array.from({ length: Math.max(1, Number(form.numInstallments) || 1) }, (_, index) => index);
+  const installmentInputs = Array.from({ length: visibleInstallmentsCount }, (_, index) => index);
 
   return (
     <section className="stack">
@@ -228,6 +321,12 @@ export function Passengers() {
 
         <div className="card">
           <h3>Cuotas del pasajero</h3>
+          <p>
+            Total viaje: ${tripValueForSummary.toLocaleString("es-AR")} · Cargado: ${installmentsTotal.toLocaleString("es-AR")} ·
+            Restante: ${remainingInstallmentsAmount.toLocaleString("es-AR")}
+            {remainingInstallmentsAmount > 0 ? ` · Sugerencia próxima cuota: $${suggestedInstallment.toLocaleString("es-AR")}` : " · Plan completo"}
+          </p>
+          {selectedTrip ? <small>Salida seleccionada: {selectedTrip.grade?.name ?? selectedTrip.group_name ?? selectedTrip.year}</small> : null}
           <div className="form-row installments-grid">
             {installmentInputs.map((index) => (
               <label key={index} className="field">

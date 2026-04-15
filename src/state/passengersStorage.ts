@@ -28,10 +28,16 @@ export interface PassengerItem {
   num_installments: number;
   installments: number[];
   responsible: Responsible;
+  created_by?: string;
+  created_at?: string;
+  last_modified_by?: string;
+  last_modified_at?: string;
+  last_modified_action?: "create" | "update" | "payment" | "price_update";
 }
 
 export const PASSENGERS_STORAGE_KEY = "schoolteam.passengers.with-responsible";
 export const CASH_INCOME_STORAGE_KEY = "schoolteam.cash.incomes";
+export const PASSENGER_AUDIT_STORAGE_KEY = "schoolteam.passengers.audit";
 
 export interface CashIncome {
   id: number;
@@ -42,19 +48,35 @@ export interface CashIncome {
   method: "coupon";
 }
 
+export interface PassengerAuditEntry {
+  id: number;
+  passengerId: number;
+  passengerLabel: string;
+  action: "create" | "update" | "payment" | "price_update";
+  actorName: string;
+  actorRole: string;
+  createdAt: string;
+  detail?: string;
+}
+
 function normalizePassenger(item: PassengerItem): PassengerItem {
   const numInstallments = item.num_installments ?? 8;
   const installments = Array.isArray(item.installments)
     ? Array.from({ length: numInstallments }, (_, index) => Number(item.installments[index] ?? 0))
     : Array.from({ length: numInstallments }, () => 0);
 
-  const paidAmount = item.paid_amount ?? installments.reduce((acc, value) => acc + value, 0);
+  const paidAmount = Number(item.paid_amount ?? 0);
 
   return {
     ...item,
     num_installments: numInstallments,
     installments,
-    paid_amount: paidAmount
+    paid_amount: paidAmount,
+    created_by: item.created_by ?? "Sistema",
+    created_at: item.created_at ?? item.last_modified_at ?? new Date().toISOString(),
+    last_modified_by: item.last_modified_by ?? item.created_by ?? "Sistema",
+    last_modified_at: item.last_modified_at ?? item.created_at ?? new Date().toISOString(),
+    last_modified_action: item.last_modified_action ?? "create"
   };
 }
 
@@ -93,4 +115,23 @@ export function readCashIncomes(): CashIncome[] {
 export function appendCashIncome(income: CashIncome) {
   const current = readCashIncomes();
   localStorage.setItem(CASH_INCOME_STORAGE_KEY, JSON.stringify([income, ...current]));
+}
+
+export function getPassengerBalance(item: PassengerItem): number {
+  return item.paid_amount - item.trip_value;
+}
+
+export function readPassengerAudit(): PassengerAuditEntry[] {
+  const raw = localStorage.getItem(PASSENGER_AUDIT_STORAGE_KEY);
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw) as PassengerAuditEntry[];
+  } catch {
+    return [];
+  }
+}
+
+export function appendPassengerAudit(entry: PassengerAuditEntry) {
+  const current = readPassengerAudit();
+  localStorage.setItem(PASSENGER_AUDIT_STORAGE_KEY, JSON.stringify([entry, ...current]));
 }

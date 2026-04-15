@@ -1,9 +1,11 @@
 import { FormEvent, useMemo, useState } from "react";
 import {
+  appendPassengerAudit,
   appendCashIncome,
   readStoredPassengers,
   saveStoredPassengers
 } from "../state/passengersStorage";
+import { useAuth } from "../state/AuthContext";
 
 const currencyFormatter = new Intl.NumberFormat("es-AR", {
   style: "currency",
@@ -12,6 +14,7 @@ const currencyFormatter = new Intl.NumberFormat("es-AR", {
 });
 
 export function CouponCollect() {
+  const { user } = useAuth();
   const [query, setQuery] = useState("");
   const [selectedPassengerId, setSelectedPassengerId] = useState("");
   const [amount, setAmount] = useState("");
@@ -44,7 +47,10 @@ export function CouponCollect() {
       item.id === passengerId
         ? {
             ...item,
-            paid_amount: Math.min(nextPaid, item.trip_value)
+            paid_amount: Math.min(nextPaid, item.trip_value),
+            last_modified_by: user?.name ?? "Sistema",
+            last_modified_at: new Date().toISOString(),
+            last_modified_action: "payment" as const
           }
         : item
     );
@@ -58,6 +64,16 @@ export function CouponCollect() {
       amount: payment,
       createdAt: new Date().toISOString(),
       method: "coupon"
+    });
+    appendPassengerAudit({
+      id: Date.now() + 1,
+      passengerId,
+      passengerLabel: `${selected.passengerName} ${selected.passengerLastName}`,
+      action: "payment",
+      actorName: user?.name ?? "Sistema",
+      actorRole: user?.role ?? "UNKNOWN",
+      createdAt: new Date().toISOString(),
+      detail: `Cobro de cupón por ${currencyFormatter.format(payment)}`
     });
 
     setMessage(`Cobro registrado: ${currencyFormatter.format(payment)} para ${selected.passengerName} ${selected.passengerLastName}.`);

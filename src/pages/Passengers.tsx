@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { fetchSchools, fetchShifts, fetchTrips } from "../services/api";
 import { useAuth } from "../state/AuthContext";
-import { PassengerItem, readStoredPassengers, saveStoredPassengers } from "../state/passengersStorage";
+import { appendPassengerAudit, PassengerItem, readStoredPassengers, saveStoredPassengers } from "../state/passengersStorage";
 import { readTripPriceSettings } from "./Trips";
 
 interface SchoolItem { id: number; name: string }
@@ -103,7 +103,7 @@ function getInstallmentsFromTemplate(template: PassengerFormTemplate | null): nu
 }
 
 export function Passengers() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState<PassengerItem[]>(readStoredPassengers);
   const [schools, setSchools] = useState<SchoolItem[]>([]);
@@ -223,6 +223,11 @@ export function Passengers() {
       paid_amount: 0,
       num_installments: count,
       installments: finalInstallments,
+      created_by: editingId ? items.find((item) => item.id === editingId)?.created_by ?? (user?.name ?? "Sistema") : (user?.name ?? "Sistema"),
+      created_at: editingId ? items.find((item) => item.id === editingId)?.created_at ?? new Date().toISOString() : new Date().toISOString(),
+      last_modified_by: user?.name ?? "Sistema",
+      last_modified_at: new Date().toISOString(),
+      last_modified_action: editingId ? "update" : "create",
       responsible: {
         name: form.responsibleName.trim(),
         lastName: form.responsibleLastName.trim(),
@@ -240,6 +245,17 @@ export function Passengers() {
     } else {
       persist([nextItem, ...items]);
     }
+
+    appendPassengerAudit({
+      id: Date.now(),
+      passengerId: nextItem.id,
+      passengerLabel: `${nextItem.passengerName} ${nextItem.passengerLastName}`,
+      action: editingId ? "update" : "create",
+      actorName: user?.name ?? "Sistema",
+      actorRole: user?.role ?? "UNKNOWN",
+      createdAt: new Date().toISOString(),
+      detail: editingId ? "Edición desde Pasajeros" : "Alta de pasajero"
+    });
 
     const template: PassengerFormTemplate = {
       school_id: form.school_id,
@@ -373,7 +389,7 @@ export function Passengers() {
       </form>
 
       <div className="card placeholder-table">
-        <div className="table-row header passengers-table-row-extended"><span>Pasajero</span><span>Escuela / Salida</span><span>Turno</span><span>Precio</span><span>Cuotas</span><span>Acción</span></div>
+        <div className="table-row header passengers-table-row-extended"><span>Pasajero</span><span>Escuela / Salida</span><span>Turno</span><span>Precio</span><span>Cuotas</span><span>Última modif.</span><span>Acción</span></div>
         <div className="passengers-scroll-area">
           {items.map((item) => (
             <div key={item.id} className="table-row passengers-table-row-extended">
@@ -382,6 +398,7 @@ export function Passengers() {
               <span>{item.shift_name}</span>
               <span>${item.trip_value.toLocaleString("es-AR")}</span>
               <span>{item.num_installments}</span>
+              <span>{item.last_modified_by ?? item.created_by ?? "Sistema"} · {new Date(item.last_modified_at ?? item.created_at ?? Date.now()).toLocaleString("es-AR")}</span>
               <span><button type="button" className="link" onClick={() => startEdit(item)}>Editar</button><button type="button" className="link" onClick={() => removeItem(item.id)}>Eliminar</button></span>
             </div>
           ))}

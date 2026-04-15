@@ -60,9 +60,15 @@ export function Accounts() {
       })
       .map((passenger) => {
         const paidAmount = passenger.paid_amount;
-        const paidPct = Math.max(0, Math.min(100, (paidAmount / passenger.trip_value) * 100));
-        const redWidth = Math.min(100, paidPct);
-        const grayWidth = Math.max(0, 100 - paidPct);
+        const overpaidAmount = Math.max(0, paidAmount - passenger.trip_value);
+        const baseTripValue = Math.max(1, passenger.trip_value);
+        const paidPct = Math.max(0, Math.min(100, (paidAmount / baseTripValue) * 100));
+        const barTotal = overpaidAmount > 0 ? baseTripValue + overpaidAmount : baseTripValue;
+        const redWidth = overpaidAmount > 0
+          ? (baseTripValue / barTotal) * 100
+          : Math.min(100, paidPct);
+        const greenWidth = overpaidAmount > 0 ? (overpaidAmount / barTotal) * 100 : 0;
+        const grayWidth = overpaidAmount > 0 ? 0 : Math.max(0, 100 - paidPct);
         const balance = getPassengerBalance(passenger);
 
         return {
@@ -75,6 +81,7 @@ export function Accounts() {
           redWidth,
           grayWidth,
           balance,
+          overpaidAmount,
           remainingAmount: Math.max(0, passenger.trip_value - paidAmount),
           installments: passenger.installments,
           tripLabel: passenger.trip_label,
@@ -177,6 +184,7 @@ export function Accounts() {
 
             <div className="progress-stack" aria-label={`Estado de cuenta de ${row.passenger}`}>
               <div className="segment red" style={{ width: `${row.redWidth}%` }} />
+              {row.greenWidth > 0 ? <div className="segment green" style={{ width: `${row.greenWidth}%` }} /> : null}
               <div className="segment gray" style={{ width: `${row.grayWidth}%` }} />
             </div>
 
@@ -187,6 +195,11 @@ export function Accounts() {
               <span>
                 <strong>Resta cobrar:</strong> {currencyFormatter.format(row.remainingAmount)}
               </span>
+              {row.overpaidAmount > 0 ? (
+                <span>
+                  <strong>Pago excedido:</strong> {currencyFormatter.format(row.overpaidAmount)}
+                </span>
+              ) : null}
               <div className="account-actions">
                 <button type="button" className="btn" onClick={() => printCheckbook(row)}>Imprimir chequera</button>
                 <button type="button" className="btn" onClick={() => editPassenger(row.id)}>Editar pasajero</button>

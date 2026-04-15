@@ -363,7 +363,7 @@ a {
 }
 
 .passengers-table-row-extended {
-  grid-template-columns: 1fr 1.3fr 0.8fr 1fr 1.2fr 180px;
+  grid-template-columns: 1fr 1.2fr 0.8fr 0.9fr 0.7fr 1.4fr 190px;
 }
 
 .checkbox-row {
@@ -389,6 +389,27 @@ a {
 .account-list {
   display: grid;
   gap: 14px;
+}
+
+.school-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tab-btn {
+  border: 1px solid #d0d5dd;
+  background: #fff;
+  color: #344054;
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.tab-btn.active {
+  background: #dbe7ff;
+  border-color: #84a9ff;
+  color: #1d4ed8;
 }
 
 .account-item {
@@ -435,10 +456,24 @@ a {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 8px;
   color: #344054;
+  align-items: center;
+}
+
+.account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .installments-grid {
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.passengers-scroll-area {
+  max-height: 520px;
+  overflow-y: auto;
+  display: grid;
+  gap: 8px;
 }
 
 .trip-passengers-row-extended {

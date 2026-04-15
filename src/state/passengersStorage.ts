@@ -48,7 +48,7 @@ function normalizePassenger(item: PassengerItem): PassengerItem {
     ? Array.from({ length: numInstallments }, (_, index) => Number(item.installments[index] ?? 0))
     : Array.from({ length: numInstallments }, () => 0);
 
-  const paidAmount = item.paid_amount ?? installments.reduce((acc, value) => acc + value, 0);
+  const paidAmount = Number(item.paid_amount ?? 0);
 
   return {
     ...item,
@@ -93,4 +93,8 @@ export function readCashIncomes(): CashIncome[] {
 export function appendCashIncome(income: CashIncome) {
   const current = readCashIncomes();
   localStorage.setItem(CASH_INCOME_STORAGE_KEY, JSON.stringify([income, ...current]));
+}
+
+export function getPassengerBalance(item: PassengerItem): number {
+  return item.paid_amount - item.trip_value;
 }

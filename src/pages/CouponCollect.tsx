@@ -2,6 +2,7 @@ import { FormEvent, useMemo, useState } from "react";
 import {
   appendPassengerAudit,
   appendCashIncome,
+  getPassengerBalance,
   readStoredPassengers,
   saveStoredPassengers
 } from "../state/passengersStorage";
@@ -20,7 +21,7 @@ export function CouponCollect() {
   const [amount, setAmount] = useState("");
   const [message, setMessage] = useState<string | null>(null);
 
-  const passengers = useMemo(() => readStoredPassengers(), []);
+  const [passengers, setPassengers] = useState(() => readStoredPassengers());
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -30,6 +31,13 @@ export function CouponCollect() {
       return fullName.includes(q) || item.passengerDni.includes(q);
     });
   }, [passengers, query]);
+
+  const selectedPassenger = useMemo(
+    () => passengers.find((item) => item.id === Number(selectedPassengerId)),
+    [passengers, selectedPassengerId]
+  );
+  const selectedBalance = selectedPassenger ? getPassengerBalance(selectedPassenger) : null;
+  const remainingAmount = selectedPassenger ? Math.max(0, selectedPassenger.trip_value - selectedPassenger.paid_amount) : 0;
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -56,6 +64,7 @@ export function CouponCollect() {
     );
 
     saveStoredPassengers(nextPassengers);
+    setPassengers(nextPassengers);
 
     appendCashIncome({
       id: Date.now(),
@@ -116,6 +125,25 @@ export function CouponCollect() {
           <button type="submit" className="btn">Registrar cobro</button>
         </div>
       </form>
+
+      {selectedPassenger ? (
+        <div className="card">
+          <h3>Estado de cuenta del pasajero</h3>
+          <p><strong>Pasajero:</strong> {selectedPassenger.passengerName} {selectedPassenger.passengerLastName} · DNI {selectedPassenger.passengerDni}</p>
+          <p><strong>Salida:</strong> {selectedPassenger.trip_label} · <strong>Escuela:</strong> {selectedPassenger.school_name}</p>
+          <p><strong>Total viaje:</strong> {currencyFormatter.format(selectedPassenger.trip_value)}</p>
+          <p><strong>Total cobrado:</strong> {currencyFormatter.format(selectedPassenger.paid_amount)}</p>
+          <p><strong>Resta pagar:</strong> {currencyFormatter.format(remainingAmount)}</p>
+          <p>
+            <strong>Estado:</strong>{" "}
+            {selectedBalance !== null && selectedBalance < 0
+              ? `Deuda ${currencyFormatter.format(selectedBalance)}`
+              : selectedBalance === 0
+                ? "Saldo al día"
+                : `Saldo a favor ${currencyFormatter.format(selectedBalance)}`}
+          </p>
+        </div>
+      ) : null}
 
       {message ? <p className="badge">{message}</p> : null}
     </section>

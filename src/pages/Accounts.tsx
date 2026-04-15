@@ -64,10 +64,11 @@ export function Accounts() {
         const baseTripValue = Math.max(1, passenger.trip_value);
         const paidPct = Math.max(0, Math.min(100, (paidAmount / baseTripValue) * 100));
         const barTotal = overpaidAmount > 0 ? baseTripValue + overpaidAmount : baseTripValue;
+        const rawGreenWidth = overpaidAmount > 0 ? (overpaidAmount / barTotal) * 100 : 0;
+        const greenWidth = overpaidAmount > 0 ? Math.max(rawGreenWidth, 8) : 0;
         const redWidth = overpaidAmount > 0
-          ? (baseTripValue / barTotal) * 100
+          ? Math.max(0, 100 - greenWidth)
           : Math.min(100, paidPct);
-        const greenWidth = overpaidAmount > 0 ? (overpaidAmount / barTotal) * 100 : 0;
         const grayWidth = overpaidAmount > 0 ? 0 : Math.max(0, 100 - paidPct);
         const balance = getPassengerBalance(passenger);
 
@@ -184,8 +185,8 @@ export function Accounts() {
 
             <div className="progress-stack" aria-label={`Estado de cuenta de ${row.passenger}`}>
               <div className="segment red" style={{ width: `${row.redWidth}%` }} />
-              {row.greenWidth > 0 ? <div className="segment green" style={{ width: `${row.greenWidth}%` }} /> : null}
-              <div className="segment gray" style={{ width: `${row.grayWidth}%` }} />
+              {row.greenWidth > 0 ? <div className="segment green" style={{ width: `${row.greenWidth}%`, backgroundColor: "#12b76a" }} /> : null}
+              {row.grayWidth > 0 ? <div className="segment gray" style={{ width: `${row.grayWidth}%` }} /> : null}
             </div>
 
             <div className="legend-grid">

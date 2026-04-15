@@ -391,6 +391,27 @@ a {
   gap: 14px;
 }
 
+.school-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tab-btn {
+  border: 1px solid #d0d5dd;
+  background: #fff;
+  color: #344054;
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.tab-btn.active {
+  background: #dbe7ff;
+  border-color: #84a9ff;
+  color: #1d4ed8;
+}
+
 .account-item {
   border: 1px solid #e4e7ec;
   border-radius: 12px;
@@ -435,6 +456,7 @@ a {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 8px;
   color: #344054;
+  align-items: center;
 }
 
 .installments-grid {

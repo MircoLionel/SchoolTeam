@@ -38,21 +38,12 @@ export function CouponCollect() {
     const selected = current.find((item) => item.id === passengerId);
     if (!selected) return;
 
-    let remainingPayment = payment;
-    const nextInstallments = selected.installments.map((installment) => {
-      if (remainingPayment <= 0) return installment;
-      const next = installment + remainingPayment;
-      remainingPayment = 0;
-      return next;
-    });
-
-    const nextPaid = nextInstallments.reduce((acc, value) => acc + value, 0);
+    const nextPaid = Math.min(selected.trip_value, selected.paid_amount + payment);
 
     const nextPassengers = current.map((item) =>
       item.id === passengerId
         ? {
             ...item,
-            installments: nextInstallments,
             paid_amount: Math.min(nextPaid, item.trip_value)
           }
         : item

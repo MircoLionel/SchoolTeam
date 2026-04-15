@@ -222,7 +222,7 @@ export function Trips() {
             </label>
             <label className="field">
               <span>Grupo salida</span>
-              <input value={DEFAULT_GROUP_NAME} readOnly />
+              <input value={selectedGrade?.name ?? ""} readOnly />
             </label>
           </div>
 

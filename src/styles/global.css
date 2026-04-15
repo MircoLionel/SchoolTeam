@@ -459,8 +459,21 @@ a {
   align-items: center;
 }
 
+.account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .installments-grid {
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.passengers-scroll-area {
+  max-height: 520px;
+  overflow-y: auto;
+  display: grid;
+  gap: 8px;
 }
 
 .trip-passengers-row-extended {

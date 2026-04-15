@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { fetchSchools, fetchShifts, fetchTrips } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 import { PassengerItem, readStoredPassengers, saveStoredPassengers } from "../state/passengersStorage";
@@ -103,6 +104,7 @@ function getInstallmentsFromTemplate(template: PassengerFormTemplate | null): nu
 
 export function Passengers() {
   const { token } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState<PassengerItem[]>(readStoredPassengers);
   const [schools, setSchools] = useState<SchoolItem[]>([]);
   const [trips, setTrips] = useState<TripItem[]>([]);
@@ -286,6 +288,15 @@ export function Passengers() {
 
   const installmentInputs = Array.from({ length: visibleInstallmentsCount }, (_, index) => index);
 
+  useEffect(() => {
+    const editPassengerId = Number(searchParams.get("editPassengerId"));
+    if (!editPassengerId) return;
+    const foundItem = items.find((item) => item.id === editPassengerId);
+    if (!foundItem) return;
+    startEdit(foundItem);
+    setSearchParams({}, { replace: true });
+  }, [items, searchParams, setSearchParams]);
+
   return (
     <section className="stack">
       <header className="page-header">
@@ -363,16 +374,18 @@ export function Passengers() {
 
       <div className="card placeholder-table">
         <div className="table-row header passengers-table-row-extended"><span>Pasajero</span><span>Escuela / Salida</span><span>Turno</span><span>Precio</span><span>Cuotas</span><span>Acción</span></div>
-        {items.map((item) => (
-          <div key={item.id} className="table-row passengers-table-row-extended">
-            <span>{item.passengerName} {item.passengerLastName}</span>
-            <span>{item.school_name} · {item.trip_label}</span>
-            <span>{item.shift_name}</span>
-            <span>${item.trip_value.toLocaleString("es-AR")}</span>
-            <span>{item.num_installments}</span>
-            <span><button type="button" className="link" onClick={() => startEdit(item)}>Editar</button><button type="button" className="link" onClick={() => removeItem(item.id)}>Eliminar</button></span>
-          </div>
-        ))}
+        <div className="passengers-scroll-area">
+          {items.map((item) => (
+            <div key={item.id} className="table-row passengers-table-row-extended">
+              <span>{item.passengerName} {item.passengerLastName}</span>
+              <span>{item.school_name} · {item.trip_label}</span>
+              <span>{item.shift_name}</span>
+              <span>${item.trip_value.toLocaleString("es-AR")}</span>
+              <span>{item.num_installments}</span>
+              <span><button type="button" className="link" onClick={() => startEdit(item)}>Editar</button><button type="button" className="link" onClick={() => removeItem(item.id)}>Eliminar</button></span>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );

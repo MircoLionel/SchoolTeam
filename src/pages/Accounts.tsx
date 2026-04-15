@@ -40,13 +40,14 @@ export function Accounts() {
 
   const rows = useMemo(() => {
     const normalized = query.trim().toLowerCase();
+    const hasQuery = normalized.length > 0;
 
     return passengers
       .filter((passenger) => {
         const isSchoolMatch = selectedSchool === "all" || passenger.school_name === selectedSchool;
         if (!isSchoolMatch) return false;
-        if (!selectedTrip || passenger.trip_id !== Number(selectedTrip)) return false;
-        if (!normalized) return true;
+        if (!hasQuery && (!selectedTrip || passenger.trip_id !== Number(selectedTrip))) return false;
+        if (!normalized) return selectedTrip ? passenger.trip_id === Number(selectedTrip) : true;
         const fullName = `${passenger.passengerName} ${passenger.passengerLastName}`.toLowerCase();
         return (
           fullName.includes(normalized) ||
@@ -150,8 +151,8 @@ export function Accounts() {
       </div>
 
       <div className="card account-list">
-        {!selectedTrip ? <p>Seleccioná una salida para ver estado de cuenta e imprimir chequeras.</p> : null}
-        {selectedTrip && rows.length === 0 ? <p>No hay pasajeros para el filtro seleccionado.</p> : null}
+        {!selectedTrip && !query.trim() ? <p>Seleccioná una salida para ver estado de cuenta e imprimir chequeras.</p> : null}
+        {(selectedTrip || query.trim()) && rows.length === 0 ? <p>No hay pasajeros para el filtro seleccionado.</p> : null}
 
         {rows.map((row) => (
           <article key={row.id} className="account-item">

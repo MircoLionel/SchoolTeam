@@ -79,7 +79,6 @@ export function Accounts() {
           paidAmount,
           paidPct,
           redWidth,
-          greenWidth,
           grayWidth,
           balance,
           overpaidAmount,

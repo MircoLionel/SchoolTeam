@@ -41,6 +41,17 @@ docker compose exec app php artisan db:seed
 
 Seeder incluye **admin por defecto**:
 - `admin@schoolteam.turismo` / `admin123`
+- `mirco@schoolteam.turismo` / `mirco123`
+- `ivan@schoolteam.turismo` / `ivan123`
+- `operador@schoolteam.turismo` / `operador123`
+
+> Si recreaste contenedores o volumen de Postgres, al levantar `docker compose up -d --build`
+> el contenedor `app` ahora ejecuta `migrate --force` + `db:seed --force` automáticamente.
+> Si querés forzar de forma manual:
+>
+> ```bash
+> docker compose exec app php artisan migrate:fresh --seed --force
+> ```
 
 ### Endpoints principales
 

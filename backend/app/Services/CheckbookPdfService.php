@@ -18,33 +18,61 @@ class CheckbookPdfService
             throw new RuntimeException('No se recibieron cuotas para generar la chequera.');
         }
 
-        $templatePath = config('checkbook_pdf.template_path');
-        if (! is_string($templatePath) || ! is_file($templatePath)) {
-            throw new RuntimeException("No se encontró la plantilla PDF en: {$templatePath}");
+        if (! class_exists(Fpdi::class)) {
+            throw new RuntimeException(
+                'No está instalada la librería FPDI/FPDF. Ejecutá: composer install o composer require setasign/fpdf setasign/fpdi'
+            );
         }
 
-        $groups = config('checkbook_pdf.repeat_groups', []);
-        if (! is_array($groups) || $groups === []) {
-            throw new RuntimeException('La configuración repeat_groups de checkbook_pdf es inválida.');
+        $templatePath = config('checkbook_pdf.template_path');
+        if (! is_string($templatePath) || ! is_file($templatePath)) {
+            throw new RuntimeException("No se encontró la plantilla PDF en: {$templatePath}. Subila en backend/storage/app/templates/1,2,3 (2).pdf o definí CHECKBOOK_TEMPLATE_PATH en .env");
+        }
+
+        $couponPositions = config('checkbook_pdf.coupon_positions', []);
+        if (! is_array($couponPositions) || count($couponPositions) !== 3) {
+            throw new RuntimeException('La configuración coupon_positions debe tener exactamente 3 posiciones (3 cuotas por página).');
+        }
+
+        $copiesOffsetX = config('checkbook_pdf.copy_offsets_x', []);
+        if (! is_array($copiesOffsetX) || $copiesOffsetX === []) {
+            throw new RuntimeException('La configuración copy_offsets_x es inválida.');
+        }
+
+        $couponsPerPage = (int) config('checkbook_pdf.coupons_per_page', 3);
+        if ($couponsPerPage !== 3) {
+            throw new RuntimeException('La configuración coupons_per_page actualmente debe ser 3 para esta plantilla.');
         }
 
         $pdf = new Fpdi('P', 'mm');
         $pageCount = $pdf->setSourceFile($templatePath);
         $sourcePage = (int) config('checkbook_pdf.source_page', 1);
         if ($sourcePage < 1 || $sourcePage > $pageCount) {
-            throw new RuntimeException("source_page={$sourcePage} es inválida para la plantilla ({$pageCount} páginas).");
+            throw new RuntimeException("source_page={$sourcePage} es inválida para la plantilla ({$pageCount} páginas). ");
         }
 
         $templateId = $pdf->importPage($sourcePage);
-        $rowsPerPage = count($groups);
 
-        foreach (array_chunk($installments, $rowsPerPage) as $pageInstallments) {
+        // Regla solicitada: 1-3 cuotas => 1 página, 4-6 => 2, etc.
+        foreach (array_chunk($installments, 3) as $installmentsPageGroup) {
             $pdf->addPage();
             $pdf->useTemplate($templateId, 0, 0);
 
-            foreach ($pageInstallments as $rowIndex => $installment) {
-                foreach ($groups[$rowIndex] as $slotIndex) {
-                    $this->printInstallmentIntoSlot($pdf, (int) $slotIndex, $header, $installment);
+            foreach ($couponPositions as $couponIndex => $couponPosition) {
+                $installment = $installmentsPageGroup[$couponIndex] ?? null;
+
+                // Si no hay cuota en esta fila (última página incompleta), se deja el espacio vacío.
+                if (! is_array($installment)) {
+                    continue;
+                }
+
+                foreach ($copiesOffsetX as $offsetX) {
+                    $slot = [
+                        'x' => (float) ($couponPosition['x'] ?? 0) + (float) $offsetX,
+                        'y' => (float) ($couponPosition['y'] ?? 0),
+                    ];
+
+                    $this->printInstallmentIntoSlot($pdf, $slot, $header, $installment);
                 }
             }
         }
@@ -67,19 +95,14 @@ class CheckbookPdfService
     }
 
     /**
+     * @param  array<string, float>  $slot
      * @param  array<string, mixed>  $header
      * @param  array<string, mixed>  $installment
      */
-    private function printInstallmentIntoSlot(Fpdi $pdf, int $slotIndex, array $header, array $installment): void
+    private function printInstallmentIntoSlot(Fpdi $pdf, array $slot, array $header, array $installment): void
     {
-        $slots = config('checkbook_pdf.slots', []);
         $fields = config('checkbook_pdf.fields', []);
         $font = config('checkbook_pdf.font', []);
-
-        $slot = Arr::get($slots, $slotIndex);
-        if (! is_array($slot)) {
-            throw new RuntimeException("Slot {$slotIndex} no configurado en checkbook_pdf.slots");
-        }
 
         $pdf->SetFont(
             (string) ($font['family'] ?? 'Helvetica'),

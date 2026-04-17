@@ -1,46 +1,40 @@
 <?php
 
 return [
-    'template_path' => storage_path('app/templates/1,2,3 (2).pdf'),
+    'template_path' => env('CHECKBOOK_TEMPLATE_PATH', storage_path('app/templates/1,2,3 (2).pdf')),
     'source_page' => 1,
 
     /*
     |--------------------------------------------------------------------------
-    | Posiciones base de cada talón (9 por hoja)
+    | Cupones por página
     |--------------------------------------------------------------------------
-    | Coordenadas absolutas en mm, de la esquina superior izquierda de cada
-    | talón en la plantilla.
+    | La plantilla tiene espacio para 3 cuotas por página (1 por fila).
+    | Cada cuota se replica horizontalmente en 3 comprobantes iguales.
     */
-    'slots' => [
+    'coupons_per_page' => 3,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Posición base de cada cupón (fila) dentro de la página
+    |--------------------------------------------------------------------------
+    */
+    'coupon_positions' => [
         ['x' => 104.0, 'y' => 17.0],
-        ['x' => 145.5, 'y' => 17.0],
-        ['x' => 187.0, 'y' => 17.0],
-
         ['x' => 104.0, 'y' => 105.0],
-        ['x' => 145.5, 'y' => 105.0],
-        ['x' => 187.0, 'y' => 105.0],
-
         ['x' => 104.0, 'y' => 193.0],
-        ['x' => 145.5, 'y' => 193.0],
-        ['x' => 187.0, 'y' => 193.0],
     ],
 
     /*
     |--------------------------------------------------------------------------
-    | Repetición horizontal
+    | Offsets horizontales de los 3 troqueles por fila
     |--------------------------------------------------------------------------
-    | Cada fila tiene 3 comprobantes iguales (pasajero/empresa/cobrador).
-    | Cada grupo consume 1 cuota y la imprime en 3 slots.
+    | 0 = talón izquierdo, luego centro y derecho.
     */
-    'repeat_groups' => [
-        [0, 1, 2],
-        [3, 4, 5],
-        [6, 7, 8],
-    ],
+    'copy_offsets_x' => [0.0, 41.5, 83.0],
 
     /*
     |--------------------------------------------------------------------------
-    | Campos relativos al origen de cada slot
+    | Campos relativos al origen de cada troquel
     |--------------------------------------------------------------------------
     */
     'fields' => [

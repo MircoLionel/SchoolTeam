@@ -1,3 +1,21 @@
+## Configuración de chequera PDF (FPDI)
+
+Para que **Imprimir chequera** use la plantilla real (y no una salida alternativa), necesitás:
+
+1. Instalar dependencias PHP en `backend/`:
+   - `composer install`
+   - o `composer require setasign/fpdf setasign/fpdi`
+2. Subir la plantilla PDF a:
+   - `backend/storage/app/templates/1,2,3 (2).pdf`
+3. (Opcional) Definir ruta personalizada en `.env`:
+   - `CHECKBOOK_TEMPLATE_PATH=/ruta/completa/1,2,3 (2).pdf`
+4. Limpiar caché de config si corresponde:
+   - `php artisan config:clear`
+
+Las coordenadas editables están en `config/checkbook_pdf.php` (`coupon_positions` para las 3 cuotas por página y `copy_offsets_x` para los 3 troqueles horizontales).
+
+Paginación: se usa `array_chunk($cuotas, 3)` para reutilizar la plantilla base en tantas páginas como haga falta (1-3 => 1 página, 4-6 => 2, etc.).
+
 <p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
 <p align="center">

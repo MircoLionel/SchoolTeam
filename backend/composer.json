@@ -7,7 +7,7 @@
     "laravel/framework": "^11.0",
     "laravel/sanctum": "^4.0",
     "setasign/fpdf": "^1.8",
-    "setasign/fpdi": "^2.5"
+    "setasign/fpdi": "^2.6"
   },
   "require-dev": {
     "pestphp/pest": "^2.0",

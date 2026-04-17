@@ -260,6 +260,55 @@ export async function deleteSchoolGradeShift(token: string, id: number) {
   });
 }
 
+
+export interface CheckbookPdfInstallmentPayload {
+  nro_cuota: string;
+  importe: number;
+}
+
+export interface CheckbookPdfPayload {
+  header: {
+    contrato?: string;
+    grupo?: string;
+    destino?: string;
+    padre_tutor?: string;
+    pax?: string;
+    dni?: string;
+    periodo?: string;
+  };
+  installments: CheckbookPdfInstallmentPayload[];
+  code?: string;
+}
+
+export async function renderCheckbookPdf(token: string, payload: CheckbookPdfPayload): Promise<Blob> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/checkbooks/render-pdf`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(payload)
+    });
+  } catch (error) {
+    throw new Error("No se pudo conectar con el backend para generar la chequera.");
+  }
+
+  if (!response.ok) {
+    let message = "No se pudo generar la chequera.";
+    try {
+      const data = (await response.json()) as ApiErrorResponse;
+      message = data.error ?? data.message ?? message;
+    } catch (error) {
+      // ignore parse errors
+    }
+    throw new Error(message);
+  }
+
+  return response.blob();
+}
+
 export function extractCount(payload: unknown): number | null {
   if (!payload) {
     return null;

@@ -11,14 +11,43 @@ class AdminUserSeeder extends Seeder
 {
     public function run(): void
     {
-        User::updateOrCreate(
-            ['email' => 'admin@schoolteam.turismo'],
+        $defaultUsers = [
             [
+                'email' => 'admin@schoolteam.turismo',
                 'name' => 'Admin',
-                'password' => Hash::make('admin123'),
+                'password' => 'admin123',
                 'role' => Role::ADMIN->value,
-                'is_active' => true,
-            ]
-        );
+            ],
+            [
+                'email' => 'mirco@schoolteam.turismo',
+                'name' => 'Mirco',
+                'password' => 'mirco123',
+                'role' => Role::ADMIN->value,
+            ],
+            [
+                'email' => 'ivan@schoolteam.turismo',
+                'name' => 'Ivan',
+                'password' => 'ivan123',
+                'role' => Role::ADMIN->value,
+            ],
+            [
+                'email' => 'operador@schoolteam.turismo',
+                'name' => 'Operador',
+                'password' => 'operador123',
+                'role' => Role::OFFICE->value,
+            ],
+        ];
+
+        foreach ($defaultUsers as $defaultUser) {
+            User::updateOrCreate(
+                ['email' => $defaultUser['email']],
+                [
+                    'name' => $defaultUser['name'],
+                    'password' => Hash::make($defaultUser['password']),
+                    'role' => $defaultUser['role'],
+                    'is_active' => true,
+                ]
+            );
+        }
     }
 }

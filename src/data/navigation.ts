@@ -8,19 +8,19 @@ export const NAV_SECTIONS = [
   {
     label: "Configuración",
     links: [
-      { to: "/schools", label: "Escuelas" },
-      { to: "/grades", label: "Grados" },
-      { to: "/shifts", label: "Turnos" },
-      { to: "/contacts", label: "Contactos" }
+      { to: "/schools", label: "Escuelas", roles: [Role.ADMIN] },
+      { to: "/grades", label: "Grados", roles: [Role.ADMIN] },
+      { to: "/shifts", label: "Turnos", roles: [Role.ADMIN] },
+      { to: "/contacts", label: "Contactos", roles: [Role.ADMIN] }
     ]
   },
   {
     label: "Operación",
     links: [
-      { to: "/trips", label: "Viajes" },
-      { to: "/budgets", label: "Presupuestos" },
-      { to: "/passengers", label: "Pasajeros" },
-      { to: "/accounts", label: "Estado de cuenta" }
+      { to: "/trips", label: "Viajes", roles: [Role.ADMIN, Role.OFFICE] },
+      { to: "/budgets", label: "Presupuestos", roles: [Role.ADMIN] },
+      { to: "/passengers", label: "Pasajeros", roles: [Role.ADMIN, Role.OFFICE] },
+      { to: "/accounts", label: "Estado de cuenta", roles: [Role.ADMIN, Role.OFFICE] }
     ]
   },
   {

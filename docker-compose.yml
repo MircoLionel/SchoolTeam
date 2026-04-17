@@ -4,6 +4,7 @@ services:
     working_dir: /app
     volumes:
       - ./backend:/app
+      - ./docker/app-entrypoint.d/20-laravel-init.sh:/opt/docker/provision/entrypoint.d/20-laravel-init.sh:ro
     environment:
       WEB_DOCUMENT_ROOT: /app/public
     ports:

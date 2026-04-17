@@ -19,12 +19,20 @@ import { CouponCollect } from "./pages/CouponCollect";
 const adminOnly = [Role.ADMIN];
 const adminOffice = [Role.ADMIN, Role.OFFICE];
 const allRoles = [Role.ADMIN, Role.OFFICE, Role.READONLY];
+const operationRoles = [Role.ADMIN, Role.OFFICE];
 
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/trip-passengers" element={<TripPassengers />} />
+      <Route
+        path="/trip-passengers"
+        element={
+          <ProtectedRoute allowedRoles={operationRoles}>
+            <TripPassengers />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/"
         element={
@@ -34,31 +42,66 @@ export default function App() {
         }
       >
         <Route index element={<Dashboard />} />
-        <Route path="schools" element={<Schools />} />
-        <Route path="grades" element={<Grades />} />
-        <Route path="shifts" element={<Shifts />} />
+        <Route
+          path="schools"
+          element={
+            <ProtectedRoute allowedRoles={adminOnly} inline>
+              <Schools />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="grades"
+          element={
+            <ProtectedRoute allowedRoles={adminOnly} inline>
+              <Grades />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="shifts"
+          element={
+            <ProtectedRoute allowedRoles={adminOnly} inline>
+              <Shifts />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="contacts"
           element={
-            <ModuleCrudPage
-              moduleKey="contacts"
-              title="Contactos"
-              description="Gestión de contactos por escuela, grado y turno."
-              itemLabel="Contacto"
-            />
+            <ProtectedRoute allowedRoles={adminOnly} inline>
+              <ModuleCrudPage
+                moduleKey="contacts"
+                title="Contactos"
+                description="Gestión de contactos por escuela, grado y turno."
+                itemLabel="Contacto"
+              />
+            </ProtectedRoute>
           }
         />
         <Route
           path="trips"
-          element={<Trips />}
+          element={
+            <ProtectedRoute allowedRoles={operationRoles} inline>
+              <Trips />
+            </ProtectedRoute>
+          }
         />
         <Route
           path="budgets"
-          element={<Budgets />}
+          element={
+            <ProtectedRoute allowedRoles={adminOnly} inline>
+              <Budgets />
+            </ProtectedRoute>
+          }
         />
         <Route
           path="passengers"
-          element={<Passengers />}
+          element={
+            <ProtectedRoute allowedRoles={operationRoles} inline>
+              <Passengers />
+            </ProtectedRoute>
+          }
         />
         <Route
           path="coupons/collect"
@@ -83,7 +126,11 @@ export default function App() {
         />
         <Route
           path="accounts"
-          element={<Accounts />}
+          element={
+            <ProtectedRoute allowedRoles={operationRoles} inline>
+              <Accounts />
+            </ProtectedRoute>
+          }
         />
         <Route
           path="cashbox"

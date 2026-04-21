@@ -30,6 +30,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/installments/{installment}', [InstallmentPlanController::class, 'updateInstallment']);
 
     Route::post('/checkbooks', [\App\Http\Controllers\Api\CheckbookController::class, 'store']);
+    Route::post('/checkbooks/render-pdf', [\App\Http\Controllers\Api\CheckbookController::class, 'renderPdf']);
     Route::get('/checkbooks/{checkbook}/pdf', [\App\Http\Controllers\Api\CheckbookController::class, 'downloadPdf']);
 
     Route::post('/coupons/scan', [CouponController::class, 'scan']);

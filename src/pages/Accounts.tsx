@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { renderCheckbookPdf } from "../services/api";
+import { useAuth } from "../state/AuthContext";
 import { getPassengerBalance, readStoredPassengers } from "../state/passengersStorage";
 
 const currencyFormatter = new Intl.NumberFormat("es-AR", {
@@ -10,6 +12,7 @@ const currencyFormatter = new Intl.NumberFormat("es-AR", {
 
 export function Accounts() {
   const navigate = useNavigate();
+  const { token } = useAuth();
   const [query, setQuery] = useState("");
   const [selectedSchool, setSelectedSchool] = useState<string>("all");
   const [selectedTrip, setSelectedTrip] = useState("");
@@ -91,27 +94,49 @@ export function Accounts() {
       });
   }, [passengers, query, selectedSchool, selectedTrip]);
 
-  const printCheckbook = (row: (typeof rows)[number]) => {
-    const quotaLines = row.installments
-      .map((value, index) => `Cuota ${index + 1}: ${currencyFormatter.format(value)}`)
-      .join("\n");
+  const printCheckbook = async (row: (typeof rows)[number]) => {
+    if (!token) {
+      window.alert("No hay sesión activa para generar la chequera.");
+      return;
+    }
 
-    const printable = [
-      "Chequera del pasajero",
-      `${row.passenger} · DNI ${row.dni}`,
-      `Escuela: ${row.schoolName}`,
-      `Salida: ${row.tripLabel}`,
-      `Precio del viaje: ${currencyFormatter.format(row.tripValue)}`,
-      "",
-      quotaLines
-    ].join("\n");
+    try {
+      const payload = {
+        code: `PAX-${row.id}`,
+        header: {
+          contrato: String(row.id),
+          grupo: row.schoolName,
+          destino: row.tripLabel,
+          padre_tutor: row.passenger,
+          pax: row.passenger,
+          dni: row.dni,
+          periodo: new Date().getFullYear().toString()
+        },
+        installments: row.installments.map((value, index) => ({
+          nro_cuota: String(index + 1),
+          importe: Number(value ?? 0)
+        }))
+      };
 
-    const popup = window.open("", "_blank", "width=700,height=900");
-    if (!popup) return;
-    popup.document.write(`<pre style="font-family: sans-serif; padding: 24px; white-space: pre-wrap;">${printable}</pre>`);
-    popup.document.close();
-    popup.focus();
-    popup.print();
+      const pdfBlob = await renderCheckbookPdf(token, payload);
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      const popup = window.open(pdfUrl, "_blank");
+      if (!popup) {
+        window.alert("El navegador bloqueó la ventana de impresión.");
+        URL.revokeObjectURL(pdfUrl);
+        return;
+      }
+
+      popup.addEventListener("load", () => {
+        popup.focus();
+        popup.print();
+      });
+
+      window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo generar la chequera.";
+      window.alert(message);
+    }
   };
 
   const editPassenger = (id: number) => {

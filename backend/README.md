@@ -1,3 +1,54 @@
+## Configuración de chequera PDF (FPDI)
+
+Para que **Imprimir chequera** use la plantilla real (y no una salida alternativa), necesitás:
+
+
+Requisito de versión:
+- PHP **8.2+** (si ves `platform_check.php` indicando `>= 8.3`, corré `composer update` después de este cambio para regenerar `vendor/`).
+- Extensión PHP **gd** habilitada (`extension=gd`) para instalar `setasign/fpdf`.
+
+Si Composer marca `ext-gd` faltante:
+- En XAMPP: editar `C:\xampp\php\php.ini`, descomentar `extension=gd`, cerrar/abrir terminal y reintentar.
+- Verificación: `php -m | findstr /I gd`
+
+1. Instalar dependencias PHP en `backend/`:
+   - `composer install`
+   - o `composer require setasign/fpdf setasign/fpdi`
+2. Subir la plantilla PDF a:
+   - `backend/storage/app/templates/1,2,3 (2).pdf`
+3. (Opcional) Definir ruta personalizada en `.env`:
+   - `CHECKBOOK_TEMPLATE_PATH=/ruta/completa/1,2,3 (2).pdf`
+4. Limpiar caché de config si corresponde:
+   - `php artisan config:clear`
+
+> Importante: ese comando hay que ejecutarlo dentro de `backend/` (o usando la ruta completa):
+>
+> - `cd backend && php artisan config:clear`
+> - o desde raíz del repo: `php backend/artisan config:clear`
+
+
+Las coordenadas editables están en `config/checkbook_pdf.php` (`coupon_positions` para las 3 cuotas por página y `copy_offsets_x` para los 3 troqueles horizontales).
+
+Paginación: se usa `array_chunk($cuotas, 3)` para reutilizar la plantilla base en tantas páginas como haga falta (1-3 => 1 página, 4-6 => 2, etc.).
+
+
+### Error FPDI: "compression technique is not supported"
+
+Si aparece ese error:
+
+
+Variables recomendadas en `.env` para tu caso:
+
+```env
+CHECKBOOK_TEMPLATE_PATH=/ruta/completa/1,2,3 (2).pdf
+GHOSTSCRIPT_BINARY=gs
+# En Windows suele ser: gswin64c
+```
+
+- El servicio ahora intenta normalizar automáticamente la plantilla con **Ghostscript** (`gs`) a PDF 1.4.
+- Si no tenés Ghostscript instalado, instalalo en el servidor y opcionalmente definí `GHOSTSCRIPT_BINARY` en `.env`.
+- Alternativa manual: abrir la plantilla y volver a guardarla como PDF 1.4/1.5.
+
 <p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
 <p align="center">

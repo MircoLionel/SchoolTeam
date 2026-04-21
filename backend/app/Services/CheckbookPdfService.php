@@ -5,6 +5,7 @@ namespace App\Services;
 use Illuminate\Support\Arr;
 use RuntimeException;
 use setasign\Fpdi\Fpdi;
+use Throwable;
 
 class CheckbookPdfService
 {
@@ -45,8 +46,10 @@ class CheckbookPdfService
         }
 
         $pdf = new Fpdi('P', 'mm');
-        $pageCount = $pdf->setSourceFile($templatePath);
         $sourcePage = (int) config('checkbook_pdf.source_page', 1);
+
+        [$pageCount, $templateSourcePath] = $this->loadTemplateWithFallback($pdf, $templatePath);
+
         if ($sourcePage < 1 || $sourcePage > $pageCount) {
             throw new RuntimeException("source_page={$sourcePage} es inválida para la plantilla ({$pageCount} páginas). ");
         }
@@ -91,7 +94,126 @@ class CheckbookPdfService
 
         $pdf->Output('F', $fullPath);
 
+        // Limpieza opcional del template normalizado temporal.
+        if ($templateSourcePath !== $templatePath && is_file($templateSourcePath)) {
+            @unlink($templateSourcePath);
+        }
+
         return $fullPath;
+    }
+
+    /**
+     * @return array{0:int,1:string}
+     */
+    private function loadTemplateWithFallback(Fpdi $pdf, string $templatePath): array
+    {
+        try {
+            return [$pdf->setSourceFile($templatePath), $templatePath];
+        } catch (Throwable $e) {
+            if (! $this->isUnsupportedCompressionError($e)) {
+                throw new RuntimeException('No se pudo abrir la plantilla PDF: ' . $e->getMessage(), 0, $e);
+            }
+
+            $normalizedPath = $this->normalizeTemplateWithGhostscript($templatePath);
+            if ($normalizedPath === null) {
+                throw new RuntimeException(
+                    'La plantilla usa una compresión no soportada por FPDI gratuito y no se pudo normalizar automáticamente. ' .
+                    'Guardala como PDF 1.4/1.5 desde Acrobat o instalá Ghostscript (gs) en el servidor.'
+                );
+            }
+
+            try {
+                return [$pdf->setSourceFile($normalizedPath), $normalizedPath];
+            } catch (Throwable $retryError) {
+                throw new RuntimeException(
+                    'Se intentó normalizar la plantilla PDF pero FPDI no pudo importarla: ' . $retryError->getMessage(),
+                    0,
+                    $retryError
+                );
+            }
+        }
+    }
+
+    private function isUnsupportedCompressionError(Throwable $e): bool
+    {
+        $message = strtolower($e->getMessage());
+
+        return str_contains($message, 'compression technique')
+            || str_contains($message, 'fpdi-pdf-parser')
+            || str_contains($message, 'cross-reference stream')
+            || str_contains($message, 'object stream');
+    }
+
+    private function normalizeTemplateWithGhostscript(string $templatePath): ?string
+    {
+        $binary = $this->resolveGhostscriptBinary();
+        if ($binary === null) {
+            return null;
+        }
+
+        $tmpDir = (string) config('checkbook_pdf.tmp_dir', storage_path('app/checkbooks/tmp'));
+
+        if (! is_dir($tmpDir) && ! mkdir($tmpDir, 0775, true) && ! is_dir($tmpDir)) {
+            return null;
+        }
+
+        $outputPath = rtrim($tmpDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'normalized-' . uniqid('', true) . '.pdf';
+
+        $command = sprintf(
+            '%s -dSAFER -dBATCH -dNOPAUSE -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dDetectDuplicateImages=true -dCompressFonts=true -sOutputFile=%s %s 2>&1',
+            escapeshellcmd($binary),
+            escapeshellarg($outputPath),
+            escapeshellarg($templatePath)
+        );
+
+        exec($command, $outputLines, $exitCode);
+
+        if ($exitCode !== 0 || ! is_file($outputPath)) {
+            if (is_file($outputPath)) {
+                @unlink($outputPath);
+            }
+
+            return null;
+        }
+
+        return $outputPath;
+    }
+
+
+    private function resolveGhostscriptBinary(): ?string
+    {
+        $configured = trim((string) config('checkbook_pdf.ghostscript_binary', ''));
+
+        $candidates = array_values(array_unique(array_filter([
+            $configured !== '' ? $configured : null,
+            'gs',
+            'gswin64c',
+            'gswin32c',
+        ])));
+
+        foreach ($candidates as $candidate) {
+            if ($this->commandExists($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private function commandExists(string $command): bool
+    {
+        $probe = $this->isWindows()
+            ? sprintf('where %s 2>NUL', escapeshellcmd($command))
+            : sprintf('command -v %s >/dev/null 2>&1', escapeshellarg($command));
+
+        exec($probe, $output, $exitCode);
+
+        return $exitCode === 0;
+    }
+
+    private function isWindows(): bool
+    {
+        return DIRECTORY_SEPARATOR === '\\';
     }
 
     /**

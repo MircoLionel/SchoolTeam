@@ -56,5 +56,13 @@ return [
         'size' => 8,
     ],
 
+
+    // Binario de Ghostscript para normalizar plantillas PDF incompatibles con FPDI free.
+    // Si no se encuentra, el servicio prueba gs, gswin64c y gswin32c automáticamente.
+    'ghostscript_binary' => env('GHOSTSCRIPT_BINARY', 'gs'),
+
+    // Carpeta temporal para plantillas normalizadas.
+    'tmp_dir' => storage_path('app/checkbooks/tmp'),
+
     'output_dir' => storage_path('app/checkbooks'),
 ];

@@ -3,11 +3,11 @@
   "type": "project",
   "description": "Backend API para School Team Turismo",
   "require": {
-    "php": "^8.3",
+    "php": "^8.2",
     "laravel/framework": "^11.0",
     "laravel/sanctum": "^4.0",
     "setasign/fpdf": "^1.8",
-    "setasign/fpdi": "^2.6"
+    "setasign/fpdi": "^2.5"
   },
   "require-dev": {
     "pestphp/pest": "^2.0",

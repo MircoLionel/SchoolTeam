@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
 if [ ! -f /app/artisan ]; then
   echo "[init] /app/artisan no existe. Se omite migrate/seed."
@@ -14,7 +14,8 @@ if [ ! -f /app/vendor/autoload.php ]; then
     exit 1
   fi
 
-  for attempt in $(seq 1 10); do
+  attempt=1
+  while [ "$attempt" -le 10 ]; do
     if composer install --working-dir=/app --no-interaction --prefer-dist --optimize-autoloader; then
       echo "[init] Dependencias PHP instaladas."
       break
@@ -27,10 +28,23 @@ if [ ! -f /app/vendor/autoload.php ]; then
 
     echo "[init] composer install intento ${attempt}/10 falló. Reintentando en 2s..."
     sleep 2
+    attempt=$((attempt + 1))
   done
 fi
 
 echo "[init] Ejecutando migraciones y seed inicial..."
+
+attempt=1
+while [ "$attempt" -le 30 ]; do
+  if php /app/artisan migrate --force && php /app/artisan db:seed --force; then
+    echo "[init] Migraciones y seed completados."
+    exit 0
+  fi
+
+  echo "[init] Intento ${attempt}/30 falló. Reintentando en 2s..."
+  sleep 2
+  attempt=$((attempt + 1))
+done
 
     echo "[init] Intento ${attempt}/30 fallo. Reintentando en 2s..."
     sleep 2

@@ -3,8 +3,8 @@ set -eu
 
 if [ ! -f /app/artisan ]; then
   echo "[init] /app/artisan no existe. Se omite migrate/seed."
-  exit 0
-fi
+else
+  echo "[init] Ejecutando migraciones y seed inicial..."
 
 if [ ! -f /app/vendor/autoload.php ]; then
   echo "[init] Falta /app/vendor/autoload.php. Ejecutando composer install..."
@@ -46,5 +46,7 @@ while [ "$attempt" -le 30 ]; do
   attempt=$((attempt + 1))
 done
 
-echo "[init] No se pudieron ejecutar migrate/seed tras 30 intentos."
-exit 1
+    echo "[init] Intento ${attempt}/30 fallo. Reintentando en 2s..."
+    sleep 2
+  done
+fi

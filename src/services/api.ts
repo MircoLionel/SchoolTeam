@@ -1,4 +1,5 @@
 import { UserProfile } from "../types/auth";
+import { Role } from "../types/auth";
 
 export interface School {
   id: number;
@@ -26,6 +27,7 @@ export interface PassengerType {
 export interface CreateTripPayload {
   school_id: number;
   grade_id: number;
+  contract_number: string;
   destination: string;
   group_name: string;
   year: number;
@@ -50,6 +52,15 @@ export interface SchoolGradeShift {
   contact_name: string | null;
   contact_phone: string | null;
   contact_email: string | null;
+}
+
+export interface AdminUser {
+  id: number;
+  name: string;
+  email: string;
+  role: Role;
+  is_active: boolean;
+  created_at?: string;
 }
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api";
@@ -154,6 +165,22 @@ export async function fetchPassengers(token: string) {
 
 export async function fetchAudit(token: string) {
   return apiRequest<unknown>("/audit", { token });
+}
+
+export async function fetchUsers(token: string) {
+  return apiRequest<AdminUser[]>("/users", { token });
+}
+
+export async function updateUserPermissions(
+  token: string,
+  userId: number,
+  payload: Pick<AdminUser, "role" | "is_active">
+) {
+  return apiRequest<AdminUser>(`/users/${userId}`, {
+    method: "PATCH",
+    token,
+    body: JSON.stringify(payload)
+  });
 }
 
 export async function fetchSchools(token: string) {

@@ -34,6 +34,7 @@ export const NAV_SECTIONS = [
     label: "Administración",
     links: [
       { to: "/cashbox", label: "Caja", roles: [Role.ADMIN] },
+      { to: "/users", label: "Usuarios", roles: [Role.ADMIN] },
       { to: "/providers", label: "Proveedores", roles: [Role.ADMIN] },
       { to: "/audit", label: "Auditoría", roles: [Role.ADMIN] }
     ]

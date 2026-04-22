@@ -14,6 +14,14 @@ const currencyFormatter = new Intl.NumberFormat("es-AR", {
   maximumFractionDigits: 0
 });
 
+const escapeHtml = (value: unknown): string =>
+  String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+
 export function TripPassengers() {
   const { user } = useAuth();
   const params = new URLSearchParams(window.location.search);
@@ -96,9 +104,26 @@ export function TripPassengers() {
       return cells;
     });
 
-    const csv = [headers, ...rows]
-      .map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(";"))
-      .join("\n");
+      return `<tr>${cells.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`;
+    }).join("");
+
+    const html = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      table { border-collapse: collapse; font-family: Calibri, Arial, sans-serif; font-size: 12px; }
+      th, td { border: 1px solid #d9d9d9; padding: 7px 10px; white-space: nowrap; }
+      thead th { font-weight: 700; background: #f2f2f2; }
+    </style>
+  </head>
+  <body>
+    <table>
+      <thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr></thead>
+      <tbody>${bodyRows}</tbody>
+    </table>
+  </body>
+</html>`;
 
     const blob = new Blob([`\uFEFF${csv}`], {
       type: "text/csv;charset=utf-8;"

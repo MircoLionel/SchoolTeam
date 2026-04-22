@@ -34,7 +34,7 @@ export interface PassengerItem {
   created_at?: string;
   last_modified_by?: string;
   last_modified_at?: string;
-  last_modified_action?: "create" | "update" | "payment" | "price_update";
+  last_modified_action?: "create" | "update" | "payment" | "price_update" | "delete";
 }
 
 export const PASSENGERS_STORAGE_KEY = "schoolteam.passengers.with-responsible";
@@ -57,7 +57,7 @@ export interface PassengerAuditEntry {
   id: number;
   passengerId: number;
   passengerLabel: string;
-  action: "create" | "update" | "payment" | "price_update";
+  action: "create" | "update" | "payment" | "price_update" | "delete";
   actorName: string;
   actorRole: string;
   createdAt: string;

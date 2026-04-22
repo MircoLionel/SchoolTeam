@@ -15,13 +15,7 @@ const currencyFormatter = new Intl.NumberFormat("es-AR", {
   maximumFractionDigits: 0
 });
 
-const escapeHtml = (value: unknown): string =>
-  String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+const toCsvCell = (value: unknown): string => `"${String(value).replaceAll('"', '""')}"`;
 
 export function TripPassengers() {
   const { user } = useAuth();
@@ -70,10 +64,9 @@ export function TripPassengers() {
     });
   }, [passengers, search, selectedShift, sortBy]);
 
-  // IMPORTANTE: este export es SOLO CSV (sin bloque HTML/XLS) para evitar errores de parseo en Vite/Babel.
   const exportCsv = () => {
     const planInstallments = Number(visiblePassengers[0]?.num_installments ?? 0);
-    const headers = [
+    const headers: Array<string> = [
       "Nombre y Apellido",
       "DNI",
       "Fecha de Nac",
@@ -84,7 +77,7 @@ export function TripPassengers() {
       "Turno"
     ];
 
-    const rows = visiblePassengers.map((passenger) => {
+    const rows = visiblePassengers.map((passenger): Array<string | number> => {
       const installments = Array.from(
         { length: planInstallments },
         (_, index) => (index < Number(passenger.num_installments) ? passenger.installments[index] ?? 0 : "")
@@ -100,29 +93,12 @@ export function TripPassengers() {
         getPassengerBalance(passenger),
         passenger.shift_name
       ];
-      return cells;
     });
 
-      return `<tr>${cells.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`;
-    }).join("");
-
-    const html = `<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <style>
-      table { border-collapse: collapse; font-family: Calibri, Arial, sans-serif; font-size: 12px; }
-      th, td { border: 1px solid #d9d9d9; padding: 7px 10px; white-space: nowrap; }
-      thead th { font-weight: 700; background: #f2f2f2; }
-    </style>
-  </head>
-  <body>
-    <table>
-      <thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr></thead>
-      <tbody>${bodyRows}</tbody>
-    </table>
-  </body>
-</html>`;
+    const csvRows = [headers, ...rows];
+    const csv = csvRows
+      .map((row) => row.map(toCsvCell).join(";"))
+      .join("\n");
 
     const blob = new Blob([`\uFEFF${csv}`], {
       type: "text/csv;charset=utf-8;"

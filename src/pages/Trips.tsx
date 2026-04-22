@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { createTrip, fetchGrades, fetchSchools, fetchTrips } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 
@@ -40,6 +41,7 @@ function saveTripPriceSettings(next: TripPriceSettings) {
 
 export function Trips() {
   const { token } = useAuth();
+  const navigate = useNavigate();
   const [trips, setTrips] = useState<TripRecord[]>([]);
   const [schools, setSchools] = useState<OptionItem[]>([]);
   const [grades, setGrades] = useState<OptionItem[]>([]);
@@ -276,9 +278,13 @@ export function Trips() {
                 {trip.contract_number ? ` · Contrato Nº ${trip.contract_number}` : ""}
               </span>
               <span>
-                <a href={`/trip-passengers?tripId=${trip.id}`} target="_blank" rel="noreferrer">
+                <button
+                  type="button"
+                  className="link"
+                  onClick={() => navigate(`/trip-passengers?tripId=${trip.id}`)}
+                >
                   Ver pasajeros
-                </a>
+                </button>
                 <button
                   type="button"
                   className="link"

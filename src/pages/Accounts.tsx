@@ -78,6 +78,7 @@ export function Accounts() {
         return {
           id: passenger.id,
           passenger: `${passenger.passengerName} ${passenger.passengerLastName}`,
+          responsible: `${passenger.responsible.name} ${passenger.responsible.lastName}`,
           dni: passenger.passengerDni,
           tripValue: passenger.trip_value,
           paidAmount,
@@ -89,6 +90,8 @@ export function Accounts() {
           remainingAmount: Math.max(0, passenger.trip_value - paidAmount),
           installments: passenger.installments,
           tripLabel: passenger.trip_label,
+          tripDestination: passenger.trip_destination ?? passenger.trip_label,
+          contractNumber: passenger.trip_contract_number ?? String(passenger.trip_id),
           schoolName: passenger.school_name
         };
       });
@@ -104,13 +107,13 @@ export function Accounts() {
       const payload = {
         code: `PAX-${row.id}`,
         header: {
-          contrato: String(row.id),
+          contrato: row.contractNumber,
           grupo: row.schoolName,
-          destino: row.tripLabel,
-          padre_tutor: row.passenger,
+          destino: row.tripDestination,
+          padre_tutor: row.responsible,
           pax: row.passenger,
           dni: row.dni,
-          periodo: new Date().getFullYear().toString()
+          periodo: "-"
         },
         installments: row.installments.map((value, index) => ({
           nro_cuota: String(index + 1),

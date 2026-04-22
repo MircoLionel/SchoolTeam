@@ -69,6 +69,7 @@ export function TripPassengers() {
     });
   }, [passengers, search, selectedShift, sortBy]);
 
+  // IMPORTANTE: este export es SOLO CSV (sin bloque HTML/XLS) para evitar errores de parseo en Vite/Babel.
   const exportCsv = () => {
     // Para evitar desfasajes, usamos la cantidad de cuotas del plan de la salida (primer pasajero visible).
     // En esta pantalla todos los pasajeros pertenecen a la misma salida.

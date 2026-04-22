@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { renderCheckbookPdf } from "../services/api";
 import { useAuth } from "../state/AuthContext";
-import { appendPassengerAudit, getPassengerBalance, readStoredPassengers } from "../state/passengersStorage";
+import { appendPassengerAudit, getPassengerBalance, readPassengerAudit, readStoredPassengers } from "../state/passengersStorage";
 
 const currencyFormatter = new Intl.NumberFormat("es-AR", {
   style: "currency",
@@ -16,6 +16,7 @@ export function Accounts() {
   const [query, setQuery] = useState("");
   const [selectedSchool, setSelectedSchool] = useState<string>("all");
   const [selectedTrip, setSelectedTrip] = useState("");
+  const [printAuditVersion, setPrintAuditVersion] = useState(0);
 
   const passengers = useMemo(() => readStoredPassengers(), []);
 
@@ -42,6 +43,23 @@ export function Accounts() {
       .map(([id, label]) => ({ id, label }))
       .sort((a, b) => a.label.localeCompare(b.label, "es"));
   }, [passengers, selectedSchool]);
+
+
+  const lastPrintByPassenger = useMemo(() => {
+    const lastPrinted = new Map<number, string>();
+
+    readPassengerAudit().forEach((entry) => {
+      const detail = entry.detail?.toLowerCase() ?? "";
+      if (!detail.includes("imprimi") || !detail.includes("chequera")) return;
+
+      const prev = lastPrinted.get(entry.passengerId);
+      if (!prev || new Date(entry.createdAt).getTime() > new Date(prev).getTime()) {
+        lastPrinted.set(entry.passengerId, entry.createdAt);
+      }
+    });
+
+    return lastPrinted;
+  }, [printAuditVersion]);
 
   const rows = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -92,10 +110,11 @@ export function Accounts() {
           tripLabel: passenger.trip_label,
           tripDestination: passenger.trip_destination ?? "",
           contractNumber: passenger.trip_contract_number ?? String(passenger.trip_id),
-          schoolName: passenger.school_name
+          schoolName: passenger.school_name,
+          lastPrintedAt: lastPrintByPassenger.get(passenger.id)
         };
       });
-  }, [passengers, query, selectedSchool, selectedTrip]);
+  }, [lastPrintByPassenger, passengers, query, selectedSchool, selectedTrip]);
 
   const printCheckbook = async (row: (typeof rows)[number]) => {
     if (!token) {
@@ -110,6 +129,8 @@ export function Accounts() {
         .replace(/[^a-zA-Z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "")
         .toLowerCase();
+
+      const fileName = `cheq-${(printableName || `pax-${row.id}`).slice(0, 45)}.pdf`;
 
       const payload = {
         code: `cheq-${(printableName || `pax-${row.id}`).slice(0, 45)}`,
@@ -130,17 +151,43 @@ export function Accounts() {
 
       const pdfBlob = await renderCheckbookPdf(token, payload);
       const pdfUrl = URL.createObjectURL(pdfBlob);
-      const popup = window.open(pdfUrl, "_blank");
+
+      const popup = window.open("", "_blank");
       if (!popup) {
         window.alert("El navegador bloqueó la ventana de impresión.");
         URL.revokeObjectURL(pdfUrl);
         return;
       }
 
-      popup.addEventListener("load", () => {
+      popup.document.write(`<!doctype html><html><head><title>${fileName}</title></head><body style="margin:0"><iframe id="pdfFrame" src="${pdfUrl}" style="border:0;width:100vw;height:100vh"></iframe></body></html>`);
+      popup.document.close();
+
+      const iframe = popup.document.getElementById("pdfFrame") as HTMLIFrameElement | null;
+      iframe?.addEventListener("load", () => {
         popup.focus();
-        popup.print();
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
       });
+
+      const downloadLink = document.createElement("a");
+      downloadLink.href = pdfUrl;
+      downloadLink.download = fileName;
+      downloadLink.style.display = "none";
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+
+      appendPassengerAudit({
+        id: Date.now(),
+        passengerId: row.id,
+        passengerLabel: row.passenger,
+        action: "payment",
+        actorName: user?.name ?? "Sistema",
+        actorRole: user?.role ?? "UNKNOWN",
+        createdAt: new Date().toISOString(),
+        detail: "Imprimió chequera",
+      });
+      setPrintAuditVersion((current) => current + 1);
 
       appendPassengerAudit({
         id: Date.now(),
@@ -226,6 +273,10 @@ export function Accounts() {
               </span>
               <span>
                 Estado de cuenta: <strong>{currencyFormatter.format(row.balance)}</strong>
+              </span>
+              <span>
+                Chequera: <strong>{row.lastPrintedAt ? "Impresa" : "Pendiente"}</strong>
+                {row.lastPrintedAt ? ` · Última impresión: ${new Date(row.lastPrintedAt).toLocaleString("es-AR")}` : ""}
               </span>
             </div>
 

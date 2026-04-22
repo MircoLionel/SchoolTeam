@@ -162,6 +162,14 @@ a {
   cursor: not-allowed;
 }
 
+.btn-danger {
+  background: #b42318;
+}
+
+.btn-danger:hover {
+  background: #912018;
+}
+
 .badge {
   background: #f0f9ff;
   color: #026aa2;
@@ -326,6 +334,10 @@ a {
   grid-template-columns: 1.2fr 120px 140px;
 }
 
+.table-row-cashbox-editable {
+  grid-template-columns: 1.2fr 120px 140px 140px;
+}
+
 .cashbox-category {
   display: flex;
   align-items: center;
@@ -337,6 +349,14 @@ a {
   height: 10px;
   border-radius: 999px;
   display: inline-block;
+}
+
+.table-row-audit {
+  grid-template-columns: 1.8fr 1fr 1fr;
+}
+
+.table-row-expenses {
+  grid-template-columns: 1.8fr 1fr 140px 160px;
 }
 
 .badge-positive {

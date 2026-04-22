@@ -26,6 +26,7 @@ export interface PassengerType {
 export interface CreateTripPayload {
   school_id: number;
   grade_id: number;
+  contract_number: string;
   destination: string;
   group_name: string;
   year: number;

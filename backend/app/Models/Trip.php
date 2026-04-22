@@ -12,6 +12,7 @@ class Trip extends Model
     protected $fillable = [
         'school_id',
         'grade_id',
+        'contract_number',
         'destination',
         'group_name',
         'year',

@@ -71,8 +71,6 @@ export function TripPassengers() {
 
   // IMPORTANTE: este export es SOLO CSV (sin bloque HTML/XLS) para evitar errores de parseo en Vite/Babel.
   const exportCsv = () => {
-    // Para evitar desfasajes, usamos la cantidad de cuotas del plan de la salida (primer pasajero visible).
-    // En esta pantalla todos los pasajeros pertenecen a la misma salida.
     const planInstallments = Number(visiblePassengers[0]?.num_installments ?? 0);
     const headers = [
       "Nombre y Apellido",
@@ -91,15 +89,14 @@ export function TripPassengers() {
         (_, index) => (index < Number(passenger.num_installments) ? passenger.installments[index] ?? 0 : "")
       );
 
-      const remaining = getPassengerBalance(passenger);
-      const cells = [
+      return [
         `${passenger.passengerName} ${passenger.passengerLastName}`,
         passenger.passengerDni,
         new Date(`${passenger.passengerBirthDate}T00:00:00`).toLocaleDateString("es-AR"),
         passenger.trip_value,
         passenger.num_installments,
         ...installments,
-        remaining,
+        getPassengerBalance(passenger),
         passenger.shift_name
       ];
       return cells;

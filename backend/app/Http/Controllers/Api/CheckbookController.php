@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CheckbookPdfRenderRequest;
 use App\Http\Requests\CheckbookRequest;
+use App\Models\AuditLog;
 use App\Models\Checkbook;
 use App\Services\CheckbookService;
 use App\Services\PdfService;
@@ -33,7 +34,25 @@ class CheckbookController extends Controller
     public function renderPdf(CheckbookPdfRenderRequest $request, PdfService $pdfService): BinaryFileResponse|JsonResponse
     {
         try {
-            $path = $pdfService->renderCheckbookPdf($request->validated());
+            $payload = $request->validated();
+            $path = $pdfService->renderCheckbookPdf($payload);
+
+            AuditLog::create([
+                'entity' => 'checkbook_pdf',
+                'entity_id' => (int) ($payload['header']['contrato'] ?? 0),
+                'action' => 'PRINT',
+                'before_json' => null,
+                'after_json' => [
+                    'code' => $payload['code'] ?? null,
+                    'header' => $payload['header'] ?? [],
+                    'installments_count' => is_array($payload['installments'] ?? null) ? count($payload['installments']) : 0,
+                    'printed_at' => now()->toDateTimeString(),
+                    'printed_by' => $request->user()?->name,
+                ],
+                'user_id' => (int) $request->user()->id,
+                'ip' => $request->ip(),
+                'created_at' => now(),
+            ]);
 
             return response()->download($path, basename($path), [
                 'Content-Type' => 'application/pdf',

@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\CouponController;
 use App\Http\Controllers\Api\InstallmentPlanController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/login', [AuthController::class, 'login']);
@@ -47,4 +48,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/reports/provider-profit', [ReportController::class, 'providerProfit'])->middleware('role:ADMIN');
 
     Route::get('/audit', [AuditController::class, 'index'])->middleware('role:ADMIN');
+    Route::get('/users', [UserController::class, 'index'])->middleware('role:ADMIN');
+    Route::patch('/users/{user}', [UserController::class, 'update'])->middleware('role:ADMIN');
 });

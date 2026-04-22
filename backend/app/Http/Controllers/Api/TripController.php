@@ -24,6 +24,7 @@ class TripController extends Controller
         $data = $request->validate([
             'school_id' => ['required', 'integer', 'exists:schools,id'],
             'grade_id' => ['required', 'integer', 'exists:grades,id'],
+            'contract_number' => ['required', 'string', 'max:80'],
             'destination' => ['required', 'string'],
             'group_name' => ['required', 'string'],
             'year' => ['required', 'integer'],
@@ -45,6 +46,7 @@ class TripController extends Controller
         $data = $request->validate([
             'school_id' => ['sometimes', 'integer', 'exists:schools,id'],
             'grade_id' => ['sometimes', 'integer', 'exists:grades,id'],
+            'contract_number' => ['sometimes', 'string', 'max:80'],
             'destination' => ['sometimes', 'string'],
             'group_name' => ['sometimes', 'string'],
             'year' => ['sometimes', 'integer'],

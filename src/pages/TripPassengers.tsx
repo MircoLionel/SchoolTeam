@@ -70,22 +70,24 @@ export function TripPassengers() {
   }, [passengers, search, selectedShift, sortBy]);
 
   const exportExcel = () => {
-    const maxInstallments = Math.max(0, ...visiblePassengers.map((passenger) => passenger.num_installments));
+    // Para evitar desfasajes, usamos la cantidad de cuotas del plan de la salida (primer pasajero visible).
+    // En esta pantalla todos los pasajeros pertenecen a la misma salida.
+    const planInstallments = Number(visiblePassengers[0]?.num_installments ?? 0);
     const headers = [
       "Nombre y Apellido",
       "DNI",
       "Fecha de Nac",
       "Precio",
       "Cantidad Cuotas",
-      ...Array.from({ length: maxInstallments }, (_, index) => `Cuota ${index + 1}`),
+      ...Array.from({ length: planInstallments }, (_, index) => `Cuota ${index + 1}`),
       "Saldo",
       "Turno"
     ];
 
     const rows = visiblePassengers.map((passenger) => {
       const installments = Array.from(
-        { length: maxInstallments },
-        (_, index) => (index < passenger.num_installments ? passenger.installments[index] ?? 0 : "")
+        { length: planInstallments },
+        (_, index) => (index < Number(passenger.num_installments) ? passenger.installments[index] ?? 0 : "")
       );
 
       const remaining = getPassengerBalance(passenger);

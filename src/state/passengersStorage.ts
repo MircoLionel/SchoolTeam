@@ -40,6 +40,9 @@ export interface PassengerItem {
 export const PASSENGERS_STORAGE_KEY = "schoolteam.passengers.with-responsible";
 export const CASH_INCOME_STORAGE_KEY = "schoolteam.cash.incomes";
 export const PASSENGER_AUDIT_STORAGE_KEY = "schoolteam.passengers.audit";
+export const CASHBOX_CATEGORY_STORAGE_KEY = "schoolteam.cashbox.categories";
+export const CASHBOX_EXPENSE_STORAGE_KEY = "schoolteam.cashbox.expenses";
+export const CASHBOX_AUDIT_STORAGE_KEY = "schoolteam.cashbox.audit";
 
 export interface CashIncome {
   id: number;
@@ -60,6 +63,41 @@ export interface PassengerAuditEntry {
   createdAt: string;
   detail?: string;
 }
+
+export interface CashboxCategory {
+  id: number;
+  label: string;
+  color: string;
+  createdAt: string;
+  createdBy: string;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+export interface CashboxExpense {
+  id: number;
+  categoryId: number;
+  description: string;
+  amount: number;
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface CashboxAuditEntry {
+  id: number;
+  action: "create_category" | "update_category" | "add_expense" | "reset_cashbox";
+  actorName: string;
+  createdAt: string;
+  detail: string;
+}
+
+const defaultCashboxCategories: CashboxCategory[] = [
+  { id: 1, label: "Sueldos", color: "#6b7280", createdAt: new Date(0).toISOString(), createdBy: "Sistema" },
+  { id: 2, label: "Combustible", color: "#2563eb", createdAt: new Date(0).toISOString(), createdBy: "Sistema" },
+  { id: 3, label: "Mantenimiento", color: "#16a34a", createdAt: new Date(0).toISOString(), createdBy: "Sistema" },
+  { id: 4, label: "Seguros", color: "#a855f7", createdAt: new Date(0).toISOString(), createdBy: "Sistema" },
+  { id: 5, label: "Administración", color: "#f97316", createdAt: new Date(0).toISOString(), createdBy: "Sistema" },
+];
 
 function normalizePassenger(item: PassengerItem): PassengerItem {
   const numInstallments = item.num_installments ?? 8;
@@ -121,6 +159,51 @@ export function appendCashIncome(income: CashIncome) {
 
 export function resetCashIncomes() {
   localStorage.setItem(CASH_INCOME_STORAGE_KEY, JSON.stringify([]));
+}
+
+export function readCashboxCategories(): CashboxCategory[] {
+  const raw = localStorage.getItem(CASHBOX_CATEGORY_STORAGE_KEY);
+  if (!raw) return defaultCashboxCategories;
+  try {
+    const parsed = JSON.parse(raw) as CashboxCategory[];
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : defaultCashboxCategories;
+  } catch {
+    return defaultCashboxCategories;
+  }
+}
+
+export function saveCashboxCategories(next: CashboxCategory[]) {
+  localStorage.setItem(CASHBOX_CATEGORY_STORAGE_KEY, JSON.stringify(next));
+}
+
+export function readCashboxExpenses(): CashboxExpense[] {
+  const raw = localStorage.getItem(CASHBOX_EXPENSE_STORAGE_KEY);
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw) as CashboxExpense[];
+  } catch {
+    return [];
+  }
+}
+
+export function appendCashboxExpense(expense: CashboxExpense) {
+  const current = readCashboxExpenses();
+  localStorage.setItem(CASHBOX_EXPENSE_STORAGE_KEY, JSON.stringify([expense, ...current]));
+}
+
+export function readCashboxAudit(): CashboxAuditEntry[] {
+  const raw = localStorage.getItem(CASHBOX_AUDIT_STORAGE_KEY);
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw) as CashboxAuditEntry[];
+  } catch {
+    return [];
+  }
+}
+
+export function appendCashboxAudit(entry: CashboxAuditEntry) {
+  const current = readCashboxAudit();
+  localStorage.setItem(CASHBOX_AUDIT_STORAGE_KEY, JSON.stringify([entry, ...current]));
 }
 
 export function getPassengerBalance(item: PassengerItem): number {

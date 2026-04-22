@@ -85,7 +85,7 @@ export function Cashbox() {
     setAudit(readCashboxAudit().slice(0, 12));
   };
 
-  const handleResetCashbox = () => {
+  const onResetCashbox = () => {
     const password = window.prompt("Ingresá la contraseña para resetear caja:");
     if (password === null) return;
 
@@ -179,20 +179,6 @@ export function Cashbox() {
     setReloadKey((current) => current + 1);
   };
 
-  const handleResetCashbox = () => {
-    const password = window.prompt("Ingresá la contraseña para resetear caja:");
-    if (password === null) return;
-
-    if (password !== "Balto-Ringo") {
-      window.alert("Contraseña incorrecta.");
-      return;
-    }
-
-    resetCashIncomes();
-    setReloadKey((current) => current + 1);
-    window.alert("Caja reseteada a $0.");
-  };
-
   return (
     <section className="stack">
       <header className="page-header">
@@ -203,7 +189,7 @@ export function Cashbox() {
         <span className={`badge ${balance >= 0 ? "badge-positive" : "badge-negative"}`}>
           Balance: {formatCurrency(balance)}
         </span>
-        <button type="button" className="btn btn-danger" onClick={handleResetCashbox}>
+        <button type="button" className="btn btn-danger" onClick={onResetCashbox}>
           Resetear caja a 0
         </button>
       </header>

@@ -69,7 +69,7 @@ export function TripPassengers() {
     });
   }, [passengers, search, selectedShift, sortBy]);
 
-  const exportExcel = () => {
+  const exportCsv = () => {
     // Para evitar desfasajes, usamos la cantidad de cuotas del plan de la salida (primer pasajero visible).
     // En esta pantalla todos los pasajeros pertenecen a la misma salida.
     const planInstallments = Number(visiblePassengers[0]?.num_installments ?? 0);
@@ -198,7 +198,7 @@ export function TripPassengers() {
           <h1>Pasajeros de la salida #{tripId}</h1>
           <p>Podés filtrar por nombre/turno, ordenar por turno, editar precio y eliminar pasajero.</p>
         </div>
-        <button type="button" className="btn" onClick={exportExcel}>Exportar CSV</button>
+        <button type="button" className="btn" onClick={exportCsv}>Exportar CSV</button>
       </header>
 
       <div className="card form-grid">

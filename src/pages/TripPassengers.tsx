@@ -14,6 +14,14 @@ const currencyFormatter = new Intl.NumberFormat("es-AR", {
   maximumFractionDigits: 0
 });
 
+const escapeHtml = (value: unknown): string =>
+  String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+
 export function TripPassengers() {
   const { user } = useAuth();
   const params = new URLSearchParams(window.location.search);
@@ -62,19 +70,26 @@ export function TripPassengers() {
   }, [passengers, search, selectedShift, sortBy]);
 
   const exportExcel = () => {
+    const maxInstallments = Math.max(0, ...visiblePassengers.map((passenger) => passenger.num_installments));
     const headers = [
-      "Nombre y Apellido", "DNI", "Fecha de Nac", "Precio", "Cantidad Cuotas",
-      "Cuota 1", "Cuota 2", "Cuota 3", "Cuota 4", "Cuota 5", "Cuota 6", "Cuota 7", "Cuota 8",
-      "Saldo", "Turno"
+      "Nombre y Apellido",
+      "DNI",
+      "Fecha de Nac",
+      "Precio",
+      "Cantidad Cuotas",
+      ...Array.from({ length: maxInstallments }, (_, index) => `Cuota ${index + 1}`),
+      "Saldo",
+      "Turno"
     ];
 
-    const rows = visiblePassengers.map((passenger) => {
+    const bodyRows = visiblePassengers.map((passenger) => {
       const installments = Array.from(
-        { length: passenger.num_installments },
-        (_, index) => passenger.installments[index] ?? 0
+        { length: maxInstallments },
+        (_, index) => (index < passenger.num_installments ? passenger.installments[index] ?? 0 : "")
       );
+
       const remaining = getPassengerBalance(passenger);
-      return [
+      const cells = [
         `${passenger.passengerName} ${passenger.passengerLastName}`,
         passenger.passengerDni,
         new Date(`${passenger.passengerBirthDate}T00:00:00`).toLocaleDateString("es-AR"),
@@ -84,20 +99,35 @@ export function TripPassengers() {
         remaining,
         passenger.shift_name
       ];
-    });
 
-    const csv = [headers, ...rows]
-      .map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(";"))
-      .join("\n");
+      return `<tr>${cells.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`;
+    }).join("");
 
-    // CSV UTF-8 con BOM para que Excel lo abra correctamente con acentos y separadores.
-    const blob = new Blob([`\uFEFF${csv}`], {
-      type: "text/csv;charset=utf-8;"
+    const html = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      table { border-collapse: collapse; font-family: Calibri, Arial, sans-serif; font-size: 12px; }
+      th, td { border: 1px solid #d9d9d9; padding: 7px 10px; white-space: nowrap; }
+      thead th { font-weight: 700; background: #f2f2f2; }
+    </style>
+  </head>
+  <body>
+    <table>
+      <thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr></thead>
+      <tbody>${bodyRows}</tbody>
+    </table>
+  </body>
+</html>`;
+
+    const blob = new Blob([`\uFEFF${html}`], {
+      type: "application/vnd.ms-excel;charset=utf-8;"
     });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `pasajeros-salida-${tripId}.csv`;
+    link.download = `pasajeros-salida-${tripId}.xls`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -164,7 +194,7 @@ export function TripPassengers() {
           <h1>Pasajeros de la salida #{tripId}</h1>
           <p>Podés filtrar por nombre/turno, ordenar por turno, editar precio y eliminar pasajero.</p>
         </div>
-        <button type="button" className="btn" onClick={exportExcel}>Exportar a Excel (CSV)</button>
+        <button type="button" className="btn" onClick={exportExcel}>Exportar a Excel</button>
       </header>
 
       <div className="card form-grid">

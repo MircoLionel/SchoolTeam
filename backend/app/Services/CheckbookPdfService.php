@@ -254,9 +254,15 @@ class CheckbookPdfService
 
             $x = (float) ($slot['x'] ?? 0) + (float) ($coords['x'] ?? 0);
             $y = (float) ($slot['y'] ?? 0) + (float) ($coords['y'] ?? 0);
+            $width = (float) ($coords['w'] ?? 0);
+            $height = (float) ($coords['h'] ?? 4);
+            $align = strtoupper((string) ($coords['align'] ?? 'L'));
+            if (! in_array($align, ['L', 'C', 'R'], true)) {
+                $align = 'L';
+            }
 
             $pdf->SetXY($x, $y);
-            $pdf->Cell(0, 4, $this->sanitize($text), 0, 0, 'L');
+            $pdf->Cell($width, $height, $this->sanitize($this->truncate($text)), 0, 0, $align);
         }
     }
 
@@ -270,5 +276,10 @@ class CheckbookPdfService
     private function sanitize(string $text): string
     {
         return iconv('UTF-8', 'windows-1252//TRANSLIT', $text) ?: $text;
+    }
+
+    private function truncate(string $text, int $max = 34): string
+    {
+        return mb_strimwidth(trim($text), 0, $max, '');
     }
 }

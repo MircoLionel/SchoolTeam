@@ -25,9 +25,10 @@ class CheckbookPdfService
             );
         }
 
-        $templatePath = config('checkbook_pdf.template_path');
-        if (! is_string($templatePath) || ! is_file($templatePath)) {
-            throw new RuntimeException("No se encontró la plantilla PDF en: {$templatePath}. Subila en backend/storage/app/templates/1,2,3 (2).pdf o definí CHECKBOOK_TEMPLATE_PATH en .env");
+        $configuredTemplatePath = (string) config('checkbook_pdf.template_path', '');
+        $templatePath = $this->resolveTemplatePath($configuredTemplatePath);
+        if ($templatePath === null) {
+            throw new RuntimeException("No se encontró la plantilla en: {$configuredTemplatePath}. Subila en backend/storage/app/templates/1,2,3 (2).pdf (o .jpg/.png) o definí CHECKBOOK_TEMPLATE_PATH en .env");
         }
 
         $couponPositions = config('checkbook_pdf.coupon_positions', []);
@@ -46,20 +47,28 @@ class CheckbookPdfService
         }
 
         $pdf = new Fpdi('P', 'mm');
-        $sourcePage = (int) config('checkbook_pdf.source_page', 1);
+        $templateSourcePath = $templatePath;
+        $templateId = null;
 
-        [$pageCount, $templateSourcePath] = $this->loadTemplateWithFallback($pdf, $templatePath);
+        if (! $this->isImageTemplate($templatePath)) {
+            $sourcePage = (int) config('checkbook_pdf.source_page', 1);
+            [$pageCount, $templateSourcePath] = $this->loadTemplateWithFallback($pdf, $templatePath);
 
-        if ($sourcePage < 1 || $sourcePage > $pageCount) {
-            throw new RuntimeException("source_page={$sourcePage} es inválida para la plantilla ({$pageCount} páginas). ");
+            if ($sourcePage < 1 || $sourcePage > $pageCount) {
+                throw new RuntimeException("source_page={$sourcePage} es inválida para la plantilla ({$pageCount} páginas). ");
+            }
+
+            $templateId = $pdf->importPage($sourcePage);
         }
-
-        $templateId = $pdf->importPage($sourcePage);
 
         // Regla solicitada: 1-3 cuotas => 1 página, 4-6 => 2, etc.
         foreach (array_chunk($installments, 3) as $installmentsPageGroup) {
             $pdf->addPage();
-            $pdf->useTemplate($templateId, 0, 0);
+            if ($templateId !== null) {
+                $pdf->useTemplate($templateId, 0, 0);
+            } else {
+                $pdf->Image($templatePath, 0, 0, 210, 297);
+            }
 
             foreach ($couponPositions as $couponIndex => $couponPosition) {
                 $installment = $installmentsPageGroup[$couponIndex] ?? null;
@@ -100,6 +109,42 @@ class CheckbookPdfService
         }
 
         return $fullPath;
+    }
+
+    private function resolveTemplatePath(string $configuredPath): ?string
+    {
+        $configuredPath = trim($configuredPath);
+        if ($configuredPath !== '' && is_file($configuredPath)) {
+            return $configuredPath;
+        }
+
+        if ($configuredPath === '') {
+            return null;
+        }
+
+        $pathInfo = pathinfo($configuredPath);
+        $directory = $pathInfo['dirname'] ?? '';
+        $filename = $pathInfo['filename'] ?? '';
+
+        if ($directory === '' || $filename === '') {
+            return null;
+        }
+
+        foreach (['pdf', 'jpg', 'jpeg', 'png', 'webp'] as $extension) {
+            $candidate = $directory . DIRECTORY_SEPARATOR . $filename . '.' . $extension;
+            if (is_file($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private function isImageTemplate(string $templatePath): bool
+    {
+        $extension = strtolower((string) pathinfo($templatePath, PATHINFO_EXTENSION));
+
+        return in_array($extension, ['jpg', 'jpeg', 'png', 'webp'], true);
     }
 
     /**

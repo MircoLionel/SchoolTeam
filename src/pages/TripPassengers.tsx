@@ -8,6 +8,7 @@ import {
   updatePassengerById,
 } from "../state/passengersStorage";
 
+// Archivo saneado: exportación exclusiva CSV (sin bloques HTML/XLS heredados).
 const currencyFormatter = new Intl.NumberFormat("es-AR", {
   style: "currency",
   currency: "ARS",

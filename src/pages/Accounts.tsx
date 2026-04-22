@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { renderCheckbookPdf } from "../services/api";
 import { useAuth } from "../state/AuthContext";
-import { getPassengerBalance, readStoredPassengers } from "../state/passengersStorage";
+import { appendPassengerAudit, getPassengerBalance, readStoredPassengers } from "../state/passengersStorage";
 
 const currencyFormatter = new Intl.NumberFormat("es-AR", {
   style: "currency",
@@ -12,7 +12,7 @@ const currencyFormatter = new Intl.NumberFormat("es-AR", {
 
 export function Accounts() {
   const navigate = useNavigate();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [query, setQuery] = useState("");
   const [selectedSchool, setSelectedSchool] = useState<string>("all");
   const [selectedTrip, setSelectedTrip] = useState("");
@@ -104,8 +104,15 @@ export function Accounts() {
     }
 
     try {
+      const printableName = row.passenger
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .toLowerCase();
+
       const payload = {
-        code: `PAX-${row.id}`,
+        code: `cheq-${(printableName || `pax-${row.id}`).slice(0, 45)}`,
         header: {
           contrato: row.contractNumber,
           grupo: row.schoolName,
@@ -133,6 +140,17 @@ export function Accounts() {
       popup.addEventListener("load", () => {
         popup.focus();
         popup.print();
+      });
+
+      appendPassengerAudit({
+        id: Date.now(),
+        passengerId: row.id,
+        passengerLabel: row.passenger,
+        action: "payment",
+        actorName: user?.name ?? "Sistema",
+        actorRole: user?.role ?? "UNKNOWN",
+        createdAt: new Date().toISOString(),
+        detail: "Imprimió chequera",
       });
 
       window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);

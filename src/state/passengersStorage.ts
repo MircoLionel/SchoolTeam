@@ -85,7 +85,7 @@ export interface CashboxExpense {
 
 export interface CashboxAuditEntry {
   id: number;
-  action: "create_category" | "update_category" | "add_expense" | "reset_cashbox";
+  action: "create_category" | "update_category" | "add_expense" | "edit_expense" | "reset_cashbox";
   actorName: string;
   createdAt: string;
   detail: string;
@@ -189,6 +189,10 @@ export function readCashboxExpenses(): CashboxExpense[] {
 export function appendCashboxExpense(expense: CashboxExpense) {
   const current = readCashboxExpenses();
   localStorage.setItem(CASHBOX_EXPENSE_STORAGE_KEY, JSON.stringify([expense, ...current]));
+}
+
+export function saveCashboxExpenses(next: CashboxExpense[]) {
+  localStorage.setItem(CASHBOX_EXPENSE_STORAGE_KEY, JSON.stringify(next));
 }
 
 export function readCashboxAudit(): CashboxAuditEntry[] {

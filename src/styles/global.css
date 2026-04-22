@@ -355,6 +355,10 @@ a {
   grid-template-columns: 1.8fr 1fr 1fr;
 }
 
+.table-row-expenses {
+  grid-template-columns: 1.8fr 1fr 140px 160px;
+}
+
 .badge-positive {
   background: #ecfdf3;
   color: #067647;

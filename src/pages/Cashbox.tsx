@@ -1,5 +1,6 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useAuth } from "../state/AuthContext";
+import { Role } from "../types/auth";
 import {
   appendCashboxAudit,
   appendCashboxExpense,
@@ -9,6 +10,7 @@ import {
   readCashIncomes,
   resetCashIncomes,
   saveCashboxCategories,
+  saveCashboxExpenses,
   type CashboxCategory,
 } from "../state/passengersStorage";
 
@@ -23,6 +25,7 @@ function formatCurrency(value: number) {
 export function Cashbox() {
   const { user } = useAuth();
   const actorName = user?.name ?? "Sistema";
+  const isAdmin = user?.role === Role.ADMIN;
 
   const [reloadKey, setReloadKey] = useState(0);
   const [categories, setCategories] = useState<CashboxCategory[]>(readCashboxCategories);
@@ -74,7 +77,7 @@ export function Cashbox() {
     return `conic-gradient(${stops.join(", ")})`;
   }, [categoriesWithAmount, totalEgresos]);
 
-  const recordAudit = (action: "create_category" | "update_category" | "add_expense" | "reset_cashbox", detail: string) => {
+  const recordAudit = (action: "create_category" | "update_category" | "add_expense" | "edit_expense" | "reset_cashbox", detail: string) => {
     appendCashboxAudit({
       id: Date.now(),
       action,
@@ -175,8 +178,36 @@ export function Cashbox() {
     });
 
     setExpenseForm((current) => ({ ...current, amount: "", description: "" }));
-    recordAudit("add_expense", `Agregó gasto ${formatCurrency(amount)} en "${category.label}"`);
+    recordAudit("add_expense", `Agregó gasto ${formatCurrency(amount)} en "${category.label}" · ${expenseForm.description.trim() || "Sin detalle"}`);
     setReloadKey((current) => current + 1);
+  };
+
+  const handleEditExpense = (expenseId: number) => {
+    if (!isAdmin) {
+      window.alert("Solo ADMIN puede editar gastos.");
+      return;
+    }
+
+    const current = expenses.find((item) => item.id === expenseId);
+    if (!current) return;
+
+    const nextDescription = window.prompt("Nueva descripción:", current.description) ?? current.description;
+    const nextAmountRaw = window.prompt("Nuevo importe:", String(current.amount));
+    if (nextAmountRaw === null) return;
+    const nextAmount = Number(nextAmountRaw);
+    if (!Number.isFinite(nextAmount) || nextAmount <= 0) {
+      window.alert("Importe inválido.");
+      return;
+    }
+
+    const next = expenses.map((item) =>
+      item.id === expenseId
+        ? { ...item, description: nextDescription.trim() || "Sin detalle", amount: nextAmount }
+        : item
+    );
+    saveCashboxExpenses(next);
+    recordAudit("edit_expense", `Editó gasto #${expenseId} a ${formatCurrency(nextAmount)} · ${nextDescription.trim() || "Sin detalle"}`);
+    setReloadKey((value) => value + 1);
   };
 
   return (
@@ -261,6 +292,49 @@ export function Cashbox() {
               <span>{percentage}%</span>
               <span>{formatCurrency(category.amount)}</span>
               <span><button type="button" className="btn" onClick={() => handleEditCategory(category)}>Editar</button></span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="card placeholder-table">
+        <div className="table-row header table-row-audit">
+          <span>Auditoría caja</span>
+          <span>Usuario</span>
+          <span>Fecha/Hora</span>
+        </div>
+        {audit.length === 0 ? (
+          <div className="table-row table-row-audit"><span>Sin movimientos</span><span>-</span><span>-</span></div>
+        ) : audit.map((entry) => (
+          <div key={entry.id} className="table-row table-row-audit">
+            <span>{entry.detail}</span>
+            <span>{entry.actorName}</span>
+            <span>{new Date(entry.createdAt).toLocaleString("es-AR")}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="card placeholder-table">
+        <div className="table-row header table-row-expenses">
+          <span>Gasto</span>
+          <span>Categoría</span>
+          <span>Importe</span>
+          <span>Acción</span>
+        </div>
+        {expenses.length === 0 ? (
+          <div className="table-row table-row-expenses">
+            <span>Sin gastos registrados</span><span>-</span><span>-</span><span>-</span>
+          </div>
+        ) : expenses.slice(0, 20).map((expense) => {
+          const category = categories.find((c) => c.id === expense.categoryId);
+          return (
+            <div key={expense.id} className="table-row table-row-expenses">
+              <span>{expense.description}</span>
+              <span>{category?.label ?? "Sin categoría"}</span>
+              <span>{formatCurrency(expense.amount)}</span>
+              <span>
+                {isAdmin ? <button type="button" className="btn" onClick={() => handleEditExpense(expense.id)}>Editar gasto</button> : "-"}
+              </span>
             </div>
           );
         })}

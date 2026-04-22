@@ -41,16 +41,16 @@ return [
         // Nueva plantilla:
         // contrato -> ESCUELA
         // grupo -> Grado
-        'contrato' => ['x' => 26.0, 'y' => 27.0, 'w' => 37.0, 'align' => 'L'],
-        'grupo' => ['x' => 26.0, 'y' => 32.0, 'w' => 37.0, 'align' => 'L'],
-        'destino' => ['x' => 26.0, 'y' => 41.0, 'w' => 37.0, 'align' => 'L'],
-        'padre_tutor' => ['x' => 26.0, 'y' => 46.0, 'w' => 37.0, 'align' => 'L'],
-        'pax' => ['x' => 26.0, 'y' => 56.0, 'w' => 37.0, 'align' => 'L'],
-        'dni' => ['x' => 26.0, 'y' => 65.0, 'w' => 37.0, 'align' => 'L'],
-        'periodo' => ['x' => 26.0, 'y' => 70.0, 'w' => 37.0, 'align' => 'L'],
-        'nro_cuota' => ['x' => 26.0, 'y' => 75.0, 'w' => 37.0, 'align' => 'L'],
+        'contrato' => ['x' => 12.0, 'y' => 27.0, 'w' => 43.0, 'align' => 'L'],
+        'grupo' => ['x' => 12.0, 'y' => 32.0, 'w' => 43.0, 'align' => 'L'],
+        'destino' => ['x' => 12.0, 'y' => 41.0, 'w' => 43.0, 'align' => 'L'],
+        'padre_tutor' => ['x' => 12.0, 'y' => 46.0, 'w' => 43.0, 'align' => 'L'],
+        'pax' => ['x' => 12.0, 'y' => 56.0, 'w' => 43.0, 'align' => 'L'],
+        'dni' => ['x' => 12.0, 'y' => 65.0, 'w' => 43.0, 'align' => 'L'],
+        'periodo' => ['x' => 12.0, 'y' => 70.0, 'w' => 43.0, 'align' => 'L'],
+        'nro_cuota' => ['x' => 12.0, 'y' => 75.0, 'w' => 43.0, 'align' => 'L'],
         // En "VENCIMIENTOS" va solo el precio, ej: "$ 23000.-"
-        'importe' => ['x' => 33.0, 'y' => 85.5, 'w' => 31.0, 'align' => 'L'],
+        'importe' => ['x' => 29.0, 'y' => 85.0, 'w' => 34.0, 'align' => 'L'],
     ],
 
     'font' => [

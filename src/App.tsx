@@ -15,6 +15,7 @@ import { Passengers } from "./pages/Passengers";
 import { Accounts } from "./pages/Accounts";
 import { TripPassengers } from "./pages/TripPassengers";
 import { CouponCollect } from "./pages/CouponCollect";
+import { UsersAdmin } from "./pages/UsersAdmin";
 
 const adminOnly = [Role.ADMIN];
 const adminOffice = [Role.ADMIN, Role.OFFICE];
@@ -163,6 +164,14 @@ export default function App() {
                 description="Registro de eventos críticos y trazabilidad."
                 itemLabel="Evento"
               />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="users"
+          element={
+            <ProtectedRoute allowedRoles={adminOnly} inline>
+              <UsersAdmin />
             </ProtectedRoute>
           }
         />

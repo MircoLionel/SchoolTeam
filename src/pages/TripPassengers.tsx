@@ -82,7 +82,7 @@ export function TripPassengers() {
       "Turno"
     ];
 
-    const bodyRows = visiblePassengers.map((passenger) => {
+    const rows = visiblePassengers.map((passenger) => {
       const installments = Array.from(
         { length: maxInstallments },
         (_, index) => (index < passenger.num_installments ? passenger.installments[index] ?? 0 : "")
@@ -95,10 +95,12 @@ export function TripPassengers() {
         new Date(`${passenger.passengerBirthDate}T00:00:00`).toLocaleDateString("es-AR"),
         passenger.trip_value,
         passenger.num_installments,
-        ...installments,
-        remaining,
-        passenger.shift_name
-      ];
+          ...installments,
+          remaining,
+          passenger.shift_name
+        ];
+      return cells;
+    });
 
       return `<tr>${cells.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`;
     }).join("");
@@ -121,13 +123,13 @@ export function TripPassengers() {
   </body>
 </html>`;
 
-    const blob = new Blob([`\uFEFF${html}`], {
-      type: "application/vnd.ms-excel;charset=utf-8;"
+    const blob = new Blob([`\uFEFF${csv}`], {
+      type: "text/csv;charset=utf-8;"
     });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `pasajeros-salida-${tripId}.xls`;
+    link.download = `pasajeros-salida-${tripId}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -194,7 +196,7 @@ export function TripPassengers() {
           <h1>Pasajeros de la salida #{tripId}</h1>
           <p>Podés filtrar por nombre/turno, ordenar por turno, editar precio y eliminar pasajero.</p>
         </div>
-        <button type="button" className="btn" onClick={exportExcel}>Exportar a Excel</button>
+        <button type="button" className="btn" onClick={exportExcel}>Exportar CSV</button>
       </header>
 
       <div className="card form-grid">

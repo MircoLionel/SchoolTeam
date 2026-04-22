@@ -503,3 +503,7 @@ a {
 .trip-passengers-row-extended input {
   width: 100%;
 }
+
+.users-row {
+  grid-template-columns: 1fr 1.2fr 180px 140px;
+}

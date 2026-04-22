@@ -90,7 +90,7 @@ export function Accounts() {
           remainingAmount: Math.max(0, passenger.trip_value - paidAmount),
           installments: passenger.installments,
           tripLabel: passenger.trip_label,
-          tripDestination: passenger.trip_destination ?? passenger.trip_label,
+          tripDestination: passenger.trip_destination ?? "",
           contractNumber: passenger.trip_contract_number ?? String(passenger.trip_id),
           schoolName: passenger.school_name
         };

@@ -339,6 +339,23 @@ export function Cashbox() {
           );
         })}
       </div>
+
+      <div className="card placeholder-table">
+        <div className="table-row header table-row-audit">
+          <span>Auditoría caja</span>
+          <span>Usuario</span>
+          <span>Fecha/Hora</span>
+        </div>
+        {audit.length === 0 ? (
+          <div className="table-row table-row-audit"><span>Sin movimientos</span><span>-</span><span>-</span></div>
+        ) : audit.map((entry) => (
+          <div key={entry.id} className="table-row table-row-audit">
+            <span>{entry.detail}</span>
+            <span>{entry.actorName}</span>
+            <span>{new Date(entry.createdAt).toLocaleString("es-AR")}</span>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }

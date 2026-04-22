@@ -10,6 +10,8 @@ interface ShiftItem { id: number; name: string }
 interface TripItem {
   id: number;
   group_name: string;
+  destination?: string;
+  contract_number?: string;
   year: number;
   school_id?: number;
   school?: { id: number; name: string } | null;
@@ -215,6 +217,8 @@ export function Passengers() {
       school_name: school.name,
       trip_id: trip.id,
       trip_label: tripLabel,
+      trip_destination: trip.destination ?? "",
+      trip_contract_number: trip.contract_number ?? "",
       shift_id: shift.id,
       shift_name: shift.name,
       isAdultCompanion: form.isAdultCompanion,

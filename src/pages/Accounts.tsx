@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { renderCheckbookPdf } from "../services/api";
 import { useAuth } from "../state/AuthContext";
-import { getPassengerBalance, readStoredPassengers } from "../state/passengersStorage";
+import { appendPassengerAudit, getPassengerBalance, readStoredPassengers } from "../state/passengersStorage";
 
 const currencyFormatter = new Intl.NumberFormat("es-AR", {
   style: "currency",
@@ -12,7 +12,7 @@ const currencyFormatter = new Intl.NumberFormat("es-AR", {
 
 export function Accounts() {
   const navigate = useNavigate();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [query, setQuery] = useState("");
   const [selectedSchool, setSelectedSchool] = useState<string>("all");
   const [selectedTrip, setSelectedTrip] = useState("");
@@ -78,6 +78,7 @@ export function Accounts() {
         return {
           id: passenger.id,
           passenger: `${passenger.passengerName} ${passenger.passengerLastName}`,
+          responsible: `${passenger.responsible.name} ${passenger.responsible.lastName}`,
           dni: passenger.passengerDni,
           tripValue: passenger.trip_value,
           paidAmount,
@@ -89,6 +90,8 @@ export function Accounts() {
           remainingAmount: Math.max(0, passenger.trip_value - paidAmount),
           installments: passenger.installments,
           tripLabel: passenger.trip_label,
+          tripDestination: passenger.trip_destination ?? passenger.trip_label,
+          contractNumber: passenger.trip_contract_number ?? String(passenger.trip_id),
           schoolName: passenger.school_name
         };
       });
@@ -101,16 +104,23 @@ export function Accounts() {
     }
 
     try {
+      const printableName = row.passenger
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .toLowerCase();
+
       const payload = {
-        code: `PAX-${row.id}`,
+        code: `cheq-${(printableName || `pax-${row.id}`).slice(0, 45)}`,
         header: {
-          contrato: String(row.id),
-          grupo: row.schoolName,
-          destino: row.tripLabel,
-          padre_tutor: row.passenger,
+          contrato: row.schoolName,
+          grupo: row.tripLabel,
+          destino: row.tripDestination,
+          padre_tutor: row.responsible,
           pax: row.passenger,
           dni: row.dni,
-          periodo: new Date().getFullYear().toString()
+          periodo: "-"
         },
         installments: row.installments.map((value, index) => ({
           nro_cuota: String(index + 1),
@@ -130,6 +140,17 @@ export function Accounts() {
       popup.addEventListener("load", () => {
         popup.focus();
         popup.print();
+      });
+
+      appendPassengerAudit({
+        id: Date.now(),
+        passengerId: row.id,
+        passengerLabel: row.passenger,
+        action: "payment",
+        actorName: user?.name ?? "Sistema",
+        actorRole: user?.role ?? "UNKNOWN",
+        createdAt: new Date().toISOString(),
+        detail: "Imprimió chequera",
       });
 
       window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);

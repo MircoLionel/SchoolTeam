@@ -97,10 +97,10 @@ export function TripPassengers() {
         new Date(`${passenger.passengerBirthDate}T00:00:00`).toLocaleDateString("es-AR"),
         passenger.trip_value,
         passenger.num_installments,
-          ...installments,
-          remaining,
-          passenger.shift_name
-        ];
+        ...installments,
+        remaining,
+        passenger.shift_name
+      ];
       return cells;
     });
 

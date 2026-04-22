@@ -179,6 +179,20 @@ export function Cashbox() {
     setReloadKey((current) => current + 1);
   };
 
+  const handleResetCashbox = () => {
+    const password = window.prompt("Ingresá la contraseña para resetear caja:");
+    if (password === null) return;
+
+    if (password !== "Balto-Ringo") {
+      window.alert("Contraseña incorrecta.");
+      return;
+    }
+
+    resetCashIncomes();
+    setReloadKey((current) => current + 1);
+    window.alert("Caja reseteada a $0.");
+  };
+
   return (
     <section className="stack">
       <header className="page-header">

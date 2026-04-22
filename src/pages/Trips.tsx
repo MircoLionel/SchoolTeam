@@ -1,9 +1,11 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { createTrip, fetchGrades, fetchSchools, fetchTrips } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 
 interface TripRecord {
   id: number;
+  contract_number?: string;
   destination: string;
   group_name: string;
   year: number;
@@ -39,6 +41,7 @@ function saveTripPriceSettings(next: TripPriceSettings) {
 
 export function Trips() {
   const { token } = useAuth();
+  const navigate = useNavigate();
   const [trips, setTrips] = useState<TripRecord[]>([]);
   const [schools, setSchools] = useState<OptionItem[]>([]);
   const [grades, setGrades] = useState<OptionItem[]>([]);
@@ -51,6 +54,7 @@ export function Trips() {
   const [form, setForm] = useState({
     school_id: "",
     grade_id: "",
+    contract_number: "",
     destination: "",
     estimated_date: ""
   });
@@ -99,7 +103,7 @@ export function Trips() {
   const selectedGrade = grades.find((grade) => String(grade.id) === form.grade_id);
 
   const isFormReady = useMemo(
-    () => Boolean(form.school_id && form.grade_id && form.destination.trim() && form.estimated_date),
+    () => Boolean(form.school_id && form.grade_id && form.contract_number.trim() && form.destination.trim() && form.estimated_date),
     [form]
   );
 
@@ -116,6 +120,7 @@ export function Trips() {
         school_id: Number(form.school_id),
         grade_id: Number(form.grade_id),
         destination: form.destination.trim(),
+        contract_number: form.contract_number.trim(),
         group_name: selectedGrade.name,
         year: estimatedDate.getUTCFullYear()
       });
@@ -136,6 +141,7 @@ export function Trips() {
       setForm({
         school_id: "",
         grade_id: "",
+        contract_number: "",
         destination: "",
         estimated_date: ""
       });
@@ -204,6 +210,14 @@ export function Trips() {
 
           <div className="form-row">
             <label className="field">
+              <span>Contrato Nº interno</span>
+              <input
+                value={form.contract_number}
+                onChange={(event) => setForm((current) => ({ ...current, contract_number: event.target.value }))}
+                required
+              />
+            </label>
+            <label className="field">
               <span>Destino</span>
               <input
                 value={form.destination}
@@ -261,11 +275,16 @@ export function Trips() {
                 {trip.estimated_date
                   ? new Date(`${trip.estimated_date}T00:00:00`).toLocaleDateString("es-AR")
                   : String(trip.year)}
+                {trip.contract_number ? ` · Contrato Nº ${trip.contract_number}` : ""}
               </span>
               <span>
-                <a href={`/trip-passengers?tripId=${trip.id}`} target="_blank" rel="noreferrer">
+                <button
+                  type="button"
+                  className="link"
+                  onClick={() => navigate(`/trip-passengers?tripId=${trip.id}`)}
+                >
                   Ver pasajeros
-                </a>
+                </button>
                 <button
                   type="button"
                   className="link"

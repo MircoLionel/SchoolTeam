@@ -19,9 +19,9 @@ return [
     |--------------------------------------------------------------------------
     */
     'coupon_positions' => [
-        ['x' => 104.0, 'y' => 17.0],
-        ['x' => 104.0, 'y' => 105.0],
-        ['x' => 104.0, 'y' => 193.0],
+        ['x' => 0.0, 'y' => 0.0],
+        ['x' => 0.0, 'y' => 99.0],
+        ['x' => 0.0, 'y' => 198.0],
     ],
 
     /*
@@ -30,7 +30,8 @@ return [
     |--------------------------------------------------------------------------
     | 0 = talón izquierdo, luego centro y derecho.
     */
-    'copy_offsets_x' => [0.0, 41.5, 83.0],
+    // La columna 3 (talón empresa) se desplaza +10px a la derecha solo para datos impresos.
+    'copy_offsets_x' => [0.0, 70.0, 150.0],
 
     /*
     |--------------------------------------------------------------------------
@@ -38,16 +39,20 @@ return [
     |--------------------------------------------------------------------------
     */
     'fields' => [
-        'contrato' => ['x' => 10.0, 'y' => 16.0],
-        'grupo' => ['x' => 10.0, 'y' => 21.0],
-        'destino' => ['x' => 10.0, 'y' => 30.0],
-        'padre_tutor' => ['x' => 10.0, 'y' => 35.0],
-        'pax' => ['x' => 10.0, 'y' => 45.0],
-        'dni' => ['x' => 10.0, 'y' => 54.0],
-        'periodo' => ['x' => 10.0, 'y' => 59.0],
-        'nro_cuota' => ['x' => 10.0, 'y' => 64.0],
-        // En "VENCIMIENTOS" va solo el precio, ej: "$ 23000.-"
-        'importe' => ['x' => 11.0, 'y' => 76.5],
+        // Nueva plantilla:
+        // contrato -> ESCUELA
+        // grupo -> Grado
+        // Valores pegados al lado de los dos puntos de cada etiqueta.
+        'contrato' => ['x' => 23.0, 'y' => 22.0, 'w' => 33.0, 'align' => 'L'],
+        'grupo' => ['x' => 23.0, 'y' => 27.0, 'w' => 33.0, 'align' => 'L'],
+        'destino' => ['x' => 23.0, 'y' => 33.0, 'w' => 33.0, 'align' => 'L'],
+        'padre_tutor' => ['x' => 23.0, 'y' => 38.0, 'w' => 33.0, 'align' => 'L'],
+        'pax' => ['x' => 23.0, 'y' => 43.0, 'w' => 33.0, 'align' => 'L'],
+        'dni' => ['x' => 23.0, 'y' => 52.0, 'w' => 33.0, 'align' => 'L'],
+        'periodo' => ['x' => 23.0, 'y' => 55.0, 'w' => 33.0, 'align' => 'L'],
+        'nro_cuota' => ['x' => 23.0, 'y' => 60.0, 'w' => 33.0, 'align' => 'L'],
+        // En "VENCIMIENTOS" va solo el precio, desplazado 10px a la derecha y dentro del recuadro.
+        'importe' => ['x' => 37.0, 'y' => 70.5, 'w' => 22.0, 'align' => 'L'],
     ],
 
     'font' => [

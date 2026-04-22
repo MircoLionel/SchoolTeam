@@ -30,7 +30,8 @@ return [
     |--------------------------------------------------------------------------
     | 0 = talón izquierdo, luego centro y derecho.
     */
-    'copy_offsets_x' => [0.0, 70.0, 140.0],
+    // La columna 3 (talón empresa) se desplaza +10px a la derecha solo para datos impresos.
+    'copy_offsets_x' => [0.0, 70.0, 150.0],
 
     /*
     |--------------------------------------------------------------------------
@@ -42,16 +43,16 @@ return [
         // contrato -> ESCUELA
         // grupo -> Grado
         // Valores pegados al lado de los dos puntos de cada etiqueta.
-        'contrato' => ['x' => 23.0, 'y' => 27.0, 'w' => 33.0, 'align' => 'L'],
-        'grupo' => ['x' => 23.0, 'y' => 32.0, 'w' => 33.0, 'align' => 'L'],
-        'destino' => ['x' => 23.0, 'y' => 41.0, 'w' => 33.0, 'align' => 'L'],
-        'padre_tutor' => ['x' => 23.0, 'y' => 46.0, 'w' => 33.0, 'align' => 'L'],
-        'pax' => ['x' => 23.0, 'y' => 56.0, 'w' => 33.0, 'align' => 'L'],
-        'dni' => ['x' => 23.0, 'y' => 65.0, 'w' => 33.0, 'align' => 'L'],
-        'periodo' => ['x' => 23.0, 'y' => 70.0, 'w' => 33.0, 'align' => 'L'],
-        'nro_cuota' => ['x' => 23.0, 'y' => 75.0, 'w' => 33.0, 'align' => 'L'],
+        'contrato' => ['x' => 23.0, 'y' => 12.0, 'w' => 33.0, 'align' => 'L'],
+        'grupo' => ['x' => 23.0, 'y' => 17.0, 'w' => 33.0, 'align' => 'L'],
+        'destino' => ['x' => 23.0, 'y' => 26.0, 'w' => 33.0, 'align' => 'L'],
+        'padre_tutor' => ['x' => 23.0, 'y' => 31.0, 'w' => 33.0, 'align' => 'L'],
+        'pax' => ['x' => 23.0, 'y' => 41.0, 'w' => 33.0, 'align' => 'L'],
+        'dni' => ['x' => 23.0, 'y' => 50.0, 'w' => 33.0, 'align' => 'L'],
+        'periodo' => ['x' => 23.0, 'y' => 55.0, 'w' => 33.0, 'align' => 'L'],
+        'nro_cuota' => ['x' => 23.0, 'y' => 60.0, 'w' => 33.0, 'align' => 'L'],
         // En "VENCIMIENTOS" va solo el precio, desplazado 10px a la derecha y dentro del recuadro.
-        'importe' => ['x' => 39.0, 'y' => 80.5, 'w' => 22.0, 'align' => 'L'],
+        'importe' => ['x' => 39.0, 'y' => 65.5, 'w' => 22.0, 'align' => 'L'],
     ],
 
     'font' => [

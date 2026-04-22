@@ -93,6 +93,7 @@ export function TripPassengers() {
         getPassengerBalance(passenger),
         passenger.shift_name
       ];
+      return cells;
     });
 
     const csvRows = [headers, ...rows];

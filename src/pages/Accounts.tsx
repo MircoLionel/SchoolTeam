@@ -189,6 +189,17 @@ export function Accounts() {
       });
       setPrintAuditVersion((current) => current + 1);
 
+      appendPassengerAudit({
+        id: Date.now(),
+        passengerId: row.id,
+        passengerLabel: row.passenger,
+        action: "payment",
+        actorName: user?.name ?? "Sistema",
+        actorRole: user?.role ?? "UNKNOWN",
+        createdAt: new Date().toISOString(),
+        detail: "Imprimió chequera",
+      });
+
       window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo generar la chequera.";

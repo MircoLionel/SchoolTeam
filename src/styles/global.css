@@ -162,6 +162,14 @@ a {
   cursor: not-allowed;
 }
 
+.btn-danger {
+  background: #b42318;
+}
+
+.btn-danger:hover {
+  background: #912018;
+}
+
 .badge {
   background: #f0f9ff;
   color: #026aa2;

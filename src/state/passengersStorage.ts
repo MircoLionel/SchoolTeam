@@ -19,6 +19,8 @@ export interface PassengerItem {
   school_name: string;
   trip_id: number;
   trip_label: string;
+  trip_destination?: string;
+  trip_contract_number?: string;
   shift_id: number;
   shift_name: string;
   isAdultCompanion: boolean;
@@ -115,6 +117,10 @@ export function readCashIncomes(): CashIncome[] {
 export function appendCashIncome(income: CashIncome) {
   const current = readCashIncomes();
   localStorage.setItem(CASH_INCOME_STORAGE_KEY, JSON.stringify([income, ...current]));
+}
+
+export function resetCashIncomes() {
+  localStorage.setItem(CASH_INCOME_STORAGE_KEY, JSON.stringify([]));
 }
 
 export function getPassengerBalance(item: PassengerItem): number {

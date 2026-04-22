@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { readCashIncomes } from "../state/passengersStorage";
+import { useMemo, useState } from "react";
+import { readCashIncomes, resetCashIncomes } from "../state/passengersStorage";
 
 interface CashCategory {
   label: string;
@@ -24,9 +24,10 @@ function formatCurrency(value: number) {
 }
 
 export function Cashbox() {
+  const [reloadKey, setReloadKey] = useState(0);
   const incomesFromCoupons = useMemo(
     () => readCashIncomes().reduce((acc, movement) => acc + movement.amount, 0),
-    []
+    [reloadKey]
   );
 
   const totalEgresos = useMemo(() => categories.reduce((acc, category) => acc + category.amount, 0), []);
@@ -45,6 +46,20 @@ export function Cashbox() {
     return `conic-gradient(${stops.join(", ")})`;
   }, []);
 
+  const handleResetCashbox = () => {
+    const password = window.prompt("Ingresá la contraseña para resetear caja:");
+    if (password === null) return;
+
+    if (password !== "Balto-Ringo") {
+      window.alert("Contraseña incorrecta.");
+      return;
+    }
+
+    resetCashIncomes();
+    setReloadKey((current) => current + 1);
+    window.alert("Caja reseteada a $0.");
+  };
+
   return (
     <section className="stack">
       <header className="page-header">
@@ -55,6 +70,9 @@ export function Cashbox() {
         <span className={`badge ${balance >= 0 ? "badge-positive" : "badge-negative"}`}>
           Balance: {formatCurrency(balance)}
         </span>
+        <button type="button" className="btn btn-danger" onClick={handleResetCashbox}>
+          Resetear caja a 0
+        </button>
       </header>
 
       <div className="cashbox-grid">

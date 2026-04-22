@@ -114,8 +114,8 @@ export function Accounts() {
       const payload = {
         code: `cheq-${(printableName || `pax-${row.id}`).slice(0, 45)}`,
         header: {
-          contrato: row.contractNumber,
-          grupo: row.schoolName,
+          contrato: row.schoolName,
+          grupo: row.tripLabel,
           destino: row.tripDestination,
           padre_tutor: row.responsible,
           pax: row.passenger,

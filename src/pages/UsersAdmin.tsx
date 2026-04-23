@@ -3,6 +3,23 @@ import { AdminUser, createUser, fetchUsers, updateUserPermissions } from "../ser
 import { useAuth } from "../state/AuthContext";
 import { Role } from "../types/auth";
 
+const USERS_FALLBACK_KEY = "schoolteam.admin.users.fallback";
+
+function readFallbackUsers(): AdminUser[] {
+  try {
+    const raw = localStorage.getItem(USERS_FALLBACK_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as AdminUser[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveFallbackUsers(users: AdminUser[]) {
+  localStorage.setItem(USERS_FALLBACK_KEY, JSON.stringify(users));
+}
+
 export function UsersAdmin() {
   const { token } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -21,9 +38,19 @@ export function UsersAdmin() {
     fetchUsers(token)
       .then((response) => {
         setUsers(response);
+        saveFallbackUsers(response);
         setError(null);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "No se pudieron cargar usuarios."))
+      .catch((err) => {
+        const fallback = readFallbackUsers();
+        if (fallback.length > 0) {
+          setUsers(fallback);
+          setError("Backend no disponible. Se muestran usuarios guardados localmente.");
+          return;
+        }
+
+        setError(err instanceof Error ? err.message : "No se pudieron cargar usuarios.");
+      })
       .finally(() => setIsLoading(false));
   }, [token]);
 
@@ -34,10 +61,68 @@ export function UsersAdmin() {
         role: nextRole,
         is_active: nextIsActive
       });
-      setUsers((current) => current.map((item) => (item.id === user.id ? updated : item)));
+      setUsers((current) => {
+        const next = current.map((item) => (item.id === user.id ? updated : item));
+        saveFallbackUsers(next);
+        return next;
+      });
       setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo actualizar el usuario.");
+    } catch {
+      setUsers((current) => {
+        const next = current.map((item) => (
+          item.id === user.id ? { ...item, role: nextRole, is_active: nextIsActive } : item
+        ));
+        saveFallbackUsers(next);
+        return next;
+      });
+      setError("Backend no disponible. El cambio se guardó de forma local.");
+    }
+  };
+
+  const handleCreateUser = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!token) return;
+
+    try {
+      const created = await createUser(token, {
+        name: newUserName.trim(),
+        email: newUserEmail.trim(),
+        password: newUserPassword,
+        role: newUserRole,
+        is_active: newUserActive
+      });
+      setUsers((current) => {
+        const next = [...current, created].sort((a, b) => a.name.localeCompare(b.name));
+        saveFallbackUsers(next);
+        return next;
+      });
+      setNewUserName("");
+      setNewUserEmail("");
+      setNewUserPassword("");
+      setNewUserRole(Role.OFFICE);
+      setNewUserActive(true);
+      setError(null);
+    } catch {
+      const fallbackUser: AdminUser = {
+        id: Date.now(),
+        name: newUserName.trim(),
+        email: newUserEmail.trim(),
+        role: newUserRole,
+        is_active: newUserActive,
+        password_recovery: newUserPassword,
+        created_at: new Date().toISOString()
+      };
+      setUsers((current) => {
+        const next = [...current, fallbackUser].sort((a, b) => a.name.localeCompare(b.name));
+        saveFallbackUsers(next);
+        return next;
+      });
+      setNewUserName("");
+      setNewUserEmail("");
+      setNewUserPassword("");
+      setNewUserRole(Role.OFFICE);
+      setNewUserActive(true);
+      setError("Backend no disponible. El usuario se creó de forma local.");
     }
   };
 

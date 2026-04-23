@@ -40,6 +40,11 @@ class AuthController extends Controller
 
     private function ensureDefaultUsers(): void
     {
+        $shouldSeedDefaults = app()->environment(['local', 'testing']) || (bool) env('SEED_DEFAULT_USERS', false);
+        if (! $shouldSeedDefaults) {
+            return;
+        }
+
         if (User::query()->exists()) {
             return;
         }

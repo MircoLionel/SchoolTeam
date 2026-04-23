@@ -45,7 +45,7 @@ return [
         // Valores pegados al lado de los dos puntos de cada etiqueta.
         'contrato' => ['x' => 23.0, 'y' => 22.0, 'w' => 33.0, 'align' => 'L'],
         'grupo' => ['x' => 23.0, 'y' => 27.0, 'w' => 33.0, 'align' => 'L'],
-        'destino' => ['x' => 23.0, 'y' => 33.0, 'w' => 33.0, 'align' => 'L'],
+        'destino' => ['x' => 23.0, 'y' => 35.0, 'w' => 33.0, 'align' => 'L'],
         'padre_tutor' => ['x' => 23.0, 'y' => 38.0, 'w' => 33.0, 'align' => 'L'],
         'pax' => ['x' => 23.0, 'y' => 43.0, 'w' => 33.0, 'align' => 'L'],
         'dni' => ['x' => 23.0, 'y' => 52.0, 'w' => 33.0, 'align' => 'L'],
@@ -67,7 +67,7 @@ return [
     'ghostscript_binary' => env('GHOSTSCRIPT_BINARY', 'gs'),
 
     // Carpeta temporal para plantillas normalizadas.
-    'tmp_dir' => storage_path('app/checkbooks/tmp'),
+    'tmp_dir' => env('CHECKBOOK_TMP_DIR', storage_path('app/checkbooks/tmp')),
 
-    'output_dir' => storage_path('app/checkbooks'),
+    'output_dir' => env('CHECKBOOK_OUTPUT_DIR', storage_path('app/checkbooks')),
 ];

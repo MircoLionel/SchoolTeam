@@ -30,12 +30,6 @@ class AdminUserSeeder extends Seeder
                 'password' => 'ivan123',
                 'role' => Role::ADMIN->value,
             ],
-            [
-                'email' => 'operador@schoolteam.turismo',
-                'name' => 'Operador',
-                'password' => 'operador123',
-                'role' => Role::OFFICE->value,
-            ],
         ];
 
         foreach ($defaultUsers as $defaultUser) {
@@ -44,10 +38,13 @@ class AdminUserSeeder extends Seeder
                 [
                     'name' => $defaultUser['name'],
                     'password' => Hash::make($defaultUser['password']),
+                    'password_recovery' => $defaultUser['password'],
                     'role' => $defaultUser['role'],
                     'is_active' => true,
                 ]
             );
         }
+
+        User::query()->where('email', 'operador@schoolteam.turismo')->delete();
     }
 }

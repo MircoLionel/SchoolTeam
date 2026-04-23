@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use BackedEnum;
 use Illuminate\Http\Request;
 
 class RoleMiddleware

@@ -505,5 +505,10 @@ a {
 }
 
 .users-row {
-  grid-template-columns: 1fr 1.2fr 180px 140px;
+  grid-template-columns: 1fr 1.2fr 1fr 180px 140px;
+}
+
+.users-create-form {
+  grid-template-columns: repeat(6, minmax(120px, 1fr));
+  margin-bottom: 12px;
 }

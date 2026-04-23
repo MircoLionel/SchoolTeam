@@ -9,7 +9,12 @@ class RoleMiddleware
 {
     public function handle(Request $request, Closure $next, string $role)
     {
-        if ($request->user()?->role !== $role) {
+        $currentRole = $request->user()?->role;
+        $currentRoleValue = is_object($currentRole) && method_exists($currentRole, 'value')
+            ? $currentRole->value
+            : $currentRole;
+
+        if ($currentRoleValue !== $role) {
             return response()->json(['message' => 'Acceso denegado.'], 403);
         }
 

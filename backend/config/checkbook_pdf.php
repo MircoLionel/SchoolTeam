@@ -45,7 +45,7 @@ return [
         // Valores pegados al lado de los dos puntos de cada etiqueta.
         'contrato' => ['x' => 23.0, 'y' => 22.0, 'w' => 33.0, 'align' => 'L'],
         'grupo' => ['x' => 23.0, 'y' => 27.0, 'w' => 33.0, 'align' => 'L'],
-        'destino' => ['x' => 23.0, 'y' => 33.0, 'w' => 33.0, 'align' => 'L'],
+        'destino' => ['x' => 23.0, 'y' => 37.0, 'w' => 33.0, 'align' => 'L'],
         'padre_tutor' => ['x' => 23.0, 'y' => 38.0, 'w' => 33.0, 'align' => 'L'],
         'pax' => ['x' => 23.0, 'y' => 43.0, 'w' => 33.0, 'align' => 'L'],
         'dni' => ['x' => 23.0, 'y' => 52.0, 'w' => 33.0, 'align' => 'L'],

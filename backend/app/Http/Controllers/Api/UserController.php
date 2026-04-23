@@ -12,6 +12,16 @@ use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
+    private const ADMIN_USER_FIELDS = [
+        'id',
+        'name',
+        'email',
+        'role',
+        'is_active',
+        'password_recovery',
+        'created_at',
+    ];
+
     public function index()
     {
         $fields = ['id', 'name', 'email', 'role', 'is_active', 'created_at'];

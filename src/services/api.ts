@@ -60,6 +60,7 @@ export interface AdminUser {
   email: string;
   role: Role;
   is_active: boolean;
+  password_recovery?: string | null;
   created_at?: string;
 }
 
@@ -178,6 +179,23 @@ export async function updateUserPermissions(
 ) {
   return apiRequest<AdminUser>(`/users/${userId}`, {
     method: "PATCH",
+    token,
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function createUser(
+  token: string,
+  payload: {
+    name: string;
+    email: string;
+    password: string;
+    role: Role;
+    is_active: boolean;
+  }
+) {
+  return apiRequest<AdminUser>("/users", {
+    method: "POST",
     token,
     body: JSON.stringify(payload)
   });

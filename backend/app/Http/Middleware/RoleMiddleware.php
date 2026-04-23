@@ -11,7 +11,7 @@ class RoleMiddleware
     public function handle(Request $request, Closure $next, string $role)
     {
         $currentRole = $request->user()?->role;
-        $currentRoleValue = $currentRole instanceof BackedEnum
+        $currentRoleValue = is_object($currentRole) && property_exists($currentRole, 'value')
             ? $currentRole->value
             : $currentRole;
 

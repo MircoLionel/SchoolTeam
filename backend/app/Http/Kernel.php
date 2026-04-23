@@ -2,8 +2,9 @@
 
 namespace App\Http;
 
-use App\Http\Middleware\Cors;
 use App\Http\Middleware\RoleMiddleware;
+use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\TrustProxies;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
 
 class Kernel extends HttpKernel
@@ -12,12 +13,12 @@ class Kernel extends HttpKernel
      * Middleware global de la aplicación.
      */
     protected $middleware = [
-        \App\Http\Middleware\Cors::class,
+        TrustProxies::class,
+        SecurityHeaders::class,
         \Illuminate\Http\Middleware\HandleCors::class,
         \Illuminate\Foundation\Http\Middleware\ValidatePostSize::class,
         \Illuminate\Foundation\Http\Middleware\PreventRequestsDuringMaintenance::class,
         \Illuminate\Http\Middleware\TrustHosts::class,
-        \Illuminate\Http\Middleware\TrustProxies::class,
         \Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull::class,
     ];
 

@@ -67,7 +67,7 @@ return [
     'ghostscript_binary' => env('GHOSTSCRIPT_BINARY', 'gs'),
 
     // Carpeta temporal para plantillas normalizadas.
-    'tmp_dir' => storage_path('app/checkbooks/tmp'),
+    'tmp_dir' => env('CHECKBOOK_TMP_DIR', storage_path('app/checkbooks/tmp')),
 
-    'output_dir' => storage_path('app/checkbooks'),
+    'output_dir' => env('CHECKBOOK_OUTPUT_DIR', storage_path('app/checkbooks')),
 ];

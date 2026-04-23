@@ -9,7 +9,7 @@ use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
-Route::post('/auth/login', [AuthController::class, 'login']);
+Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
 Route::post('/auth/logout', [AuthController::class, 'logout']);
 Route::get('/me', [AuthController::class, 'me']);
 
@@ -31,13 +31,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/installments/{installment}', [InstallmentPlanController::class, 'updateInstallment']);
 
     Route::post('/checkbooks', [\App\Http\Controllers\Api\CheckbookController::class, 'store']);
-    Route::post('/checkbooks/render-pdf', [\App\Http\Controllers\Api\CheckbookController::class, 'renderPdf']);
+    Route::post('/checkbooks/render-pdf', [\App\Http\Controllers\Api\CheckbookController::class, 'renderPdf'])->middleware('throttle:sensitive');
     Route::get('/checkbooks/{checkbook}/pdf', [\App\Http\Controllers\Api\CheckbookController::class, 'downloadPdf']);
 
-    Route::post('/coupons/scan', [CouponController::class, 'scan']);
-    Route::post('/coupons/{coupon}/collect', [CouponController::class, 'collect']);
+    Route::post('/coupons/scan', [CouponController::class, 'scan'])->middleware('throttle:sensitive');
+    Route::post('/coupons/{coupon}/collect', [CouponController::class, 'collect'])->middleware('throttle:sensitive');
 
-    Route::post('/payments/non-cash', [PaymentController::class, 'storeNonCash']);
+    Route::post('/payments/non-cash', [PaymentController::class, 'storeNonCash'])->middleware('throttle:sensitive');
     Route::get('/payments/{payment}/receipt', [PaymentController::class, 'receipt']);
 
     Route::get('/accounts/{passenger}', [ReportController::class, 'passengerAccount']);

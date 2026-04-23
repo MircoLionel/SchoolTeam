@@ -11,6 +11,10 @@ class AdminUserSeeder extends Seeder
 {
     public function run(): void
     {
+        if (app()->environment('production') && ! (bool) env('SEED_DEFAULT_USERS', false)) {
+            return;
+        }
+
         $defaultUsers = [
             [
                 'email' => 'admin@schoolteam.turismo',

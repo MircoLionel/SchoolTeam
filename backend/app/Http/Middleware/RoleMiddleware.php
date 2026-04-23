@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use BackedEnum;
 use Illuminate\Http\Request;
 
 class RoleMiddleware
@@ -10,7 +11,7 @@ class RoleMiddleware
     public function handle(Request $request, Closure $next, string $role)
     {
         $currentRole = $request->user()?->role;
-        $currentRoleValue = is_object($currentRole) && method_exists($currentRole, 'value')
+        $currentRoleValue = $currentRole instanceof BackedEnum
             ? $currentRole->value
             : $currentRole;
 

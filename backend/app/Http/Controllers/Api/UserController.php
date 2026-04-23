@@ -6,6 +6,7 @@ use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 
@@ -23,9 +24,14 @@ class UserController extends Controller
 
     public function index()
     {
+        $fields = ['id', 'name', 'email', 'role', 'is_active', 'created_at'];
+        if (Schema::hasColumn('users', 'password_recovery')) {
+            $fields[] = 'password_recovery';
+        }
+
         return response()->json(
             User::query()
-                ->select(self::ADMIN_USER_FIELDS)
+                ->select($fields)
                 ->orderBy('name')
                 ->get()
         );
@@ -43,16 +49,21 @@ class UserController extends Controller
 
         $password = $validated['password'];
 
-        $user = User::query()->create([
+        $payload = [
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => Hash::make($password),
-            'password_recovery' => $password,
             'role' => $validated['role'],
             'is_active' => $validated['is_active'] ?? true,
-        ]);
+        ];
 
-        return response()->json($user->only(self::ADMIN_USER_FIELDS), 201);
+        if (Schema::hasColumn('users', 'password_recovery')) {
+            $payload['password_recovery'] = $password;
+        }
+
+        $user = User::query()->create($payload);
+
+        return response()->json($this->serializeAdminUser($user), 201);
     }
 
     public function update(Request $request, User $user)
@@ -64,6 +75,19 @@ class UserController extends Controller
 
         $user->update($validated);
 
-        return response()->json($user->only(self::ADMIN_USER_FIELDS));
+        return response()->json($this->serializeAdminUser($user));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function serializeAdminUser(User $user): array
+    {
+        $data = $user->only(['id', 'name', 'email', 'role', 'is_active', 'created_at']);
+        $data['password_recovery'] = Schema::hasColumn('users', 'password_recovery')
+            ? $user->password_recovery
+            : null;
+
+        return $data;
     }
 }

@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\Role;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -16,12 +15,13 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'password_recovery',
         'role',
         'is_active',
     ];
 
     protected $casts = [
-        'role' => Role::class,
+        'role' => 'string',
         'is_active' => 'boolean',
     ];
 

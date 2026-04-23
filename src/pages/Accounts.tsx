@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { renderCheckbookPdf } from "../services/api";
+import { fetchTrips, renderCheckbookPdf } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 import { appendPassengerAudit, getPassengerBalance, readPassengerAudit, readStoredPassengers } from "../state/passengersStorage";
 
@@ -17,8 +17,33 @@ export function Accounts() {
   const [selectedSchool, setSelectedSchool] = useState<string>("all");
   const [selectedTrip, setSelectedTrip] = useState("");
   const [printAuditVersion, setPrintAuditVersion] = useState(0);
+  const [tripDestinations, setTripDestinations] = useState<Record<number, string>>({});
 
   const passengers = useMemo(() => readStoredPassengers(), []);
+
+  useEffect(() => {
+    if (!token) return;
+
+    fetchTrips(token)
+      .then((payload) => {
+        if (!Array.isArray(payload)) return;
+
+        const map: Record<number, string> = {};
+        payload.forEach((trip) => {
+          if (!trip || typeof trip !== "object") return;
+          const candidate = trip as Record<string, unknown>;
+          const id = Number(candidate.id);
+          const destination = typeof candidate.destination === "string" ? candidate.destination.trim() : "";
+          if (!Number.isFinite(id) || !destination) return;
+          map[id] = destination;
+        });
+
+        setTripDestinations(map);
+      })
+      .catch(() => {
+        // ignore: mantenemos fallback con datos locales
+      });
+  }, [token]);
 
   const schoolTabs = useMemo(() => {
     const schools = Array.from(new Set(passengers.map((passenger) => passenger.school_name))).sort((a, b) =>
@@ -108,13 +133,13 @@ export function Accounts() {
           remainingAmount: Math.max(0, passenger.trip_value - paidAmount),
           installments: passenger.installments,
           tripLabel: passenger.trip_label,
-          tripDestination: passenger.trip_destination ?? "",
+          tripDestination: passenger.trip_destination ?? tripDestinations[passenger.trip_id] ?? "",
           contractNumber: passenger.trip_contract_number ?? String(passenger.trip_id),
           schoolName: passenger.school_name,
           lastPrintedAt: lastPrintByPassenger.get(passenger.id)
         };
       });
-  }, [lastPrintByPassenger, passengers, query, selectedSchool, selectedTrip]);
+  }, [lastPrintByPassenger, passengers, query, selectedSchool, selectedTrip, tripDestinations]);
 
   const printCheckbook = async (row: (typeof rows)[number]) => {
     if (!token) {

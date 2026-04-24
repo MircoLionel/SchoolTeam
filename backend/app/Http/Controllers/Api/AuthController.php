@@ -7,8 +7,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
+use Throwable;
 
 class AuthController extends Controller
 {
@@ -23,8 +26,30 @@ class AuthController extends Controller
             return response()->json(['message' => 'Credenciales inválidas.'], 401);
         }
 
-        Auth::login($user);
-        $token = $user->createToken('spa')->plainTextToken;
+        try {
+            if (!Schema::hasTable('personal_access_tokens')) {
+                Log::error('Login fallido: falta la tabla personal_access_tokens para Sanctum.', [
+                    'email' => $credentials['email'],
+                ]);
+
+                return response()->json([
+                    'message' => 'Error de configuración del servidor de autenticación.',
+                ], 500);
+            }
+
+            Auth::login($user);
+            $token = $user->createToken('spa')->plainTextToken;
+        } catch (Throwable $exception) {
+            Log::error('Error al generar token Sanctum durante login.', [
+                'email' => $credentials['email'],
+                'user_id' => $user->id,
+                'exception' => $exception,
+            ]);
+
+            return response()->json([
+                'message' => 'No se pudo iniciar sesión por un error interno.',
+            ], 500);
+        }
 
         return response()->json(['token' => $token, 'user' => $user]);
     }

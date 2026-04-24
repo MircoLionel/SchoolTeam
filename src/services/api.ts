@@ -408,3 +408,27 @@ export function extractCount(payload: unknown): number | null {
 
   return null;
 }
+
+export function extractCollection<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) {
+    return payload as T[];
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return [];
+  }
+
+  const record = payload as Record<string, unknown>;
+  if (Array.isArray(record.data)) {
+    return record.data as T[];
+  }
+
+  if (record.data && typeof record.data === "object") {
+    const nested = record.data as Record<string, unknown>;
+    if (Array.isArray(nested.data)) {
+      return nested.data as T[];
+    }
+  }
+
+  return [];
+}

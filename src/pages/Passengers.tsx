@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { createPassenger, fetchPassengers, fetchSchools, fetchShifts, fetchTrips } from "../services/api";
+import { createPassenger, extractCollection, fetchPassengers, fetchSchools, fetchShifts, fetchTrips } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 import { appendPassengerAudit, PassengerItem, readStoredPassengers, saveStoredPassengers } from "../state/passengersStorage";
 import { readTripPriceSettings } from "./Trips";
@@ -170,23 +170,10 @@ export function Passengers() {
     saveStoredPassengers(next);
   };
 
-  const parsePassengersResponse = (response: unknown): PassengerItem[] => {
-    if (Array.isArray(response)) return response as PassengerItem[];
-    if (
-      response &&
-      typeof response === "object" &&
-      "data" in response &&
-      Array.isArray((response as { data: unknown[] }).data)
-    ) {
-      return (response as { data: PassengerItem[] }).data;
-    }
-    return [];
-  };
-
   const loadPassengers = async () => {
     if (!token) return;
     const response = await fetchPassengers(token);
-    persist(parsePassengersResponse(response));
+    persist(extractCollection<PassengerItem>(response));
   };
 
   useEffect(() => {
@@ -199,9 +186,9 @@ export function Passengers() {
         ]);
         if (!isMounted) return;
         setSchools(Array.isArray(schoolsResponse) ? schoolsResponse : []);
-        setTrips(Array.isArray(tripsResponse) ? tripsResponse : []);
+        setTrips(extractCollection<TripItem>(tripsResponse));
         setShifts(Array.isArray(shiftsResponse) ? shiftsResponse : []);
-        persist(parsePassengersResponse(passengersResponse));
+        persist(extractCollection<PassengerItem>(passengersResponse));
         setError(null);
       } catch (err) {
         if (!isMounted) return;

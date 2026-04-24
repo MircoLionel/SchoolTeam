@@ -168,6 +168,9 @@ export interface CreatePassengerPayload {
   school_id: number;
   trip_id: number;
   shift_id: number;
+  grade_id?: number;
+  grade_shift_id?: number;
+  passenger_type_id?: number;
   passenger_name: string;
   passenger_last_name: string;
   passenger_dni: string;

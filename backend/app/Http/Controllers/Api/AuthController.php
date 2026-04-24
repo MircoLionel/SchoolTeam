@@ -16,11 +16,14 @@ class AuthController extends Controller
     {
         $this->ensureDefaultUsers();
 
-        if (!Auth::attempt($request->validated())) {
+        $credentials = $request->validated();
+        $user = User::query()->where('email', $credentials['email'])->first();
+
+        if (!$user || !Hash::check($credentials['password'], $user->password)) {
             return response()->json(['message' => 'Credenciales inválidas.'], 401);
         }
 
-        $user = $request->user();
+        Auth::login($user);
         $token = $user->createToken('spa')->plainTextToken;
 
         return response()->json(['token' => $token, 'user' => $user]);

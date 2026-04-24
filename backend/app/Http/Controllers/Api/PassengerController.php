@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Guardian;
 use App\Models\Passenger;
-use App\Models\PassengerType;
 use App\Models\Trip;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -99,14 +98,7 @@ class PassengerController extends Controller
                 $guardianId = $guardian->id;
             }
 
-            $passengerTypeId = $validated['passenger_type_id']
-                ?? PassengerType::query()->orderBy('id')->value('id');
-
-            if (!$passengerTypeId) {
-                return response()->json([
-                    'message' => 'No existe ningún tipo de pasajero cargado. Cree uno antes de crear pasajeros.',
-                ], 422);
-            }
+            $passengerTypeId = $validated['passenger_type_id'] ?? null;
 
             $fullName = trim((string) ($validated['full_name']
                 ?? (($validated['passenger_name'] ?? '') . ' ' . ($validated['passenger_last_name'] ?? ''))));

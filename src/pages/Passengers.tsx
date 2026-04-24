@@ -341,7 +341,7 @@ export function Passengers() {
     const trip = trips.find((item) => item.id === Number(form.trip_id));
     const shift = shifts.find((item) => item.id === Number(form.shift_id));
     const passengerType = passengerTypes.find((item) => item.id === Number(form.passenger_type_id));
-    if (!school || !trip || !shift || !passengerType) return;
+    if (!school || !trip || !shift) return;
 
     const tripLabel = trip.grade?.name ?? trip.group_name ?? String(trip.year);
     const tripValue = computeTripValue(trip.id);
@@ -400,7 +400,7 @@ export function Passengers() {
           shift_id: shift.id,
           grade_id: trip.grade_id ?? trip.grade?.id,
           grade_shift_id: trip.grade_shift_id,
-          passenger_type_id: passengerType.id,
+          passenger_type_id: passengerType?.id,
           passenger_name: nextItem.passengerName,
           passenger_last_name: nextItem.passengerLastName,
           passenger_dni: nextItem.passengerDni,
@@ -522,7 +522,7 @@ export function Passengers() {
           <label className="field"><span>Escuela</span><select value={form.school_id} onChange={(e)=>setForm(c=>({...c,school_id:e.target.value,trip_id:""}))} required><option value="">Seleccionar</option>{schools.map((s)=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
           <label className="field"><span>Salida</span><select value={form.trip_id} onChange={(e)=>setForm(c=>({...c,trip_id:e.target.value}))} required disabled={!form.school_id}><option value="">Seleccionar</option>{filteredTrips.map((t)=><option key={t.id} value={t.id}>{t.grade?.name ?? t.group_name ?? t.year}</option>)}</select></label>
           <label className="field"><span>Turno</span><select value={form.shift_id} onChange={(e)=>setForm(c=>({...c,shift_id:e.target.value}))} required><option value="">Seleccionar</option>{shifts.map((s)=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
-          <label className="field"><span>Tipo de pasajero</span><select value={form.passenger_type_id} onChange={(e)=>setForm(c=>({...c,passenger_type_id:e.target.value}))} required><option value="">Seleccionar</option>{passengerTypes.map((type)=><option key={type.id} value={type.id}>{type.name}</option>)}</select></label>
+          <label className="field"><span>Tipo de pasajero (opcional)</span><select value={form.passenger_type_id} onChange={(e)=>setForm(c=>({...c,passenger_type_id:e.target.value}))}><option value="">Sin tipo</option>{passengerTypes.map((type)=><option key={type.id} value={type.id}>{type.name}</option>)}</select></label>
           <label className="field"><span>Cantidad de cuotas</span><input type="number" min="1" max="18" value={form.numInstallments} onChange={(e)=>setForm(c=>({...c,numInstallments:e.target.value}))} required /></label>
         </div>
 

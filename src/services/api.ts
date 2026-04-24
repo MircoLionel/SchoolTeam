@@ -164,6 +164,39 @@ export async function fetchPassengers(token: string) {
   return apiRequest<unknown>("/passengers", { token });
 }
 
+export interface CreatePassengerPayload {
+  school_id: number;
+  trip_id: number;
+  shift_id: number;
+  passenger_name: string;
+  passenger_last_name: string;
+  passenger_dni: string;
+  passenger_birth_date: string;
+  is_adult_companion: boolean;
+  has_special_price: boolean;
+  trip_value: number;
+  num_installments: number;
+  installments: number[];
+  responsible: {
+    name: string;
+    last_name: string;
+    dni: string;
+    birth_date: string;
+    email: string;
+    phone: string;
+    address: string;
+    city: string;
+  };
+}
+
+export async function createPassenger(token: string, payload: CreatePassengerPayload) {
+  return apiRequest<unknown>("/passengers", {
+    method: "POST",
+    token,
+    body: JSON.stringify(payload)
+  });
+}
+
 export async function fetchAudit(token: string) {
   return apiRequest<unknown>("/audit", { token });
 }

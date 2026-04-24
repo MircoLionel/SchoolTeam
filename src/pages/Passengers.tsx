@@ -166,7 +166,7 @@ export function Passengers() {
 
   const isFormReady = useMemo(() => {
     const basic = form.passengerName.trim() && form.passengerLastName.trim() && form.passengerDni.trim() &&
-      form.passengerBirthDate && form.school_id && form.trip_id && form.shift_id &&
+      form.passengerBirthDate && form.school_id && form.trip_id && form.shift_id && form.passenger_type_id &&
       form.responsibleName.trim() && form.responsibleLastName.trim() && form.dni.trim() && form.birthDate &&
       form.email.includes("@") && form.phone.trim() && form.address.trim() && form.city.trim();
     if (!basic) return false;

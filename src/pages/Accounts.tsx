@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchTrips, renderCheckbookPdf } from "../services/api";
+import { extractCollection, fetchPassengers, fetchTrips, renderCheckbookPdf } from "../services/api";
 import { useAuth } from "../state/AuthContext";
-import { appendPassengerAudit, getPassengerBalance, readPassengerAudit, readStoredPassengers } from "../state/passengersStorage";
+import { appendPassengerAudit, getPassengerBalance, PassengerItem, readPassengerAudit } from "../state/passengersStorage";
 
 const currencyFormatter = new Intl.NumberFormat("es-AR", {
   style: "currency",
@@ -18,30 +18,30 @@ export function Accounts() {
   const [selectedTrip, setSelectedTrip] = useState("");
   const [printAuditVersion, setPrintAuditVersion] = useState(0);
   const [tripDestinations, setTripDestinations] = useState<Record<number, string>>({});
-
-  const passengers = useMemo(() => readStoredPassengers(), []);
+  const [passengers, setPassengers] = useState<PassengerItem[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) return;
 
-    fetchTrips(token)
-      .then((payload) => {
-        if (!Array.isArray(payload)) return;
-
+    Promise.all([fetchTrips(token), fetchPassengers(token)])
+      .then(([tripsPayload, passengersPayload]) => {
         const map: Record<number, string> = {};
-        payload.forEach((trip) => {
+        extractCollection<Record<string, unknown>>(tripsPayload).forEach((trip) => {
           if (!trip || typeof trip !== "object") return;
-          const candidate = trip as Record<string, unknown>;
-          const id = Number(candidate.id);
-          const destination = typeof candidate.destination === "string" ? candidate.destination.trim() : "";
+          const id = Number(trip.id);
+          const destination = typeof trip.destination === "string" ? trip.destination.trim() : "";
           if (!Number.isFinite(id) || !destination) return;
           map[id] = destination;
         });
 
         setTripDestinations(map);
+        setPassengers(extractCollection<PassengerItem>(passengersPayload));
+        setError(null);
       })
-      .catch(() => {
-        // ignore: mantenemos fallback con datos locales
+      .catch((err) => {
+        setPassengers([]);
+        setError(err instanceof Error ? err.message : "No se pudieron cargar viajes o pasajeros.");
       });
   }, [token]);
 
@@ -233,6 +233,7 @@ export function Accounts() {
           <p>Buscá por nombre, apellido o DNI para consultar un pasajero puntual.</p>
         </div>
       </header>
+      {error ? <p className="form-error">{error}</p> : null}
 
       <div className="card form-grid">
         <div className="school-tabs">

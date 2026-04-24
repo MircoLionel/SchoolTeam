@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { fetchSchools, fetchShifts, fetchTrips } from "../services/api";
+import { createPassenger, extractCollection, fetchPassengers, fetchSchools, fetchShifts, fetchTrips } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 import { appendPassengerAudit, PassengerItem, readStoredPassengers, saveStoredPassengers } from "../state/passengersStorage";
 import { readTripPriceSettings } from "./Trips";
@@ -107,7 +107,7 @@ function getInstallmentsFromTemplate(template: PassengerFormTemplate | null): nu
 export function Passengers() {
   const { token, user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [items, setItems] = useState<PassengerItem[]>(readStoredPassengers);
+  const [items, setItems] = useState<PassengerItem[]>([]);
   const [schools, setSchools] = useState<SchoolItem[]>([]);
   const [trips, setTrips] = useState<TripItem[]>([]);
   const [shifts, setShifts] = useState<ShiftItem[]>([]);
@@ -115,28 +115,6 @@ export function Passengers() {
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<PassengerForm>(() => mergeFormWithTemplate(readFormTemplate()));
   const [installments, setInstallments] = useState<number[]>(() => getInstallmentsFromTemplate(readFormTemplate()));
-
-  useEffect(() => {
-    let isMounted = true;
-    const loadOptions = async () => {
-      if (!token) return;
-      try {
-        const [schoolsResponse, tripsResponse, shiftsResponse] = await Promise.all([
-          fetchSchools(token), fetchTrips(token), fetchShifts(token)
-        ]);
-        if (!isMounted) return;
-        setSchools(Array.isArray(schoolsResponse) ? schoolsResponse : []);
-        setTrips(Array.isArray(tripsResponse) ? tripsResponse : []);
-        setShifts(Array.isArray(shiftsResponse) ? shiftsResponse : []);
-        setError(null);
-      } catch (err) {
-        if (!isMounted) return;
-        setError(err instanceof Error ? err.message : "No se pudieron cargar escuelas/salidas/turnos.");
-      }
-    };
-    loadOptions();
-    return () => { isMounted = false; };
-  }, [token]);
 
   const filteredTrips = useMemo(() => {
     if (!form.school_id) return [];
@@ -192,7 +170,37 @@ export function Passengers() {
     saveStoredPassengers(next);
   };
 
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const loadPassengers = async () => {
+    if (!token) return;
+    const response = await fetchPassengers(token);
+    persist(extractCollection<PassengerItem>(response));
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadOptions = async () => {
+      if (!token) return;
+      try {
+        const [schoolsResponse, tripsResponse, shiftsResponse, passengersResponse] = await Promise.all([
+          fetchSchools(token), fetchTrips(token), fetchShifts(token), fetchPassengers(token)
+        ]);
+        if (!isMounted) return;
+        setSchools(Array.isArray(schoolsResponse) ? schoolsResponse : []);
+        setTrips(extractCollection<TripItem>(tripsResponse));
+        setShifts(Array.isArray(shiftsResponse) ? shiftsResponse : []);
+        persist(extractCollection<PassengerItem>(passengersResponse));
+        setError(null);
+      } catch (err) {
+        if (!isMounted) return;
+        persist(readStoredPassengers());
+        setError(err instanceof Error ? err.message : "No se pudieron cargar escuelas/salidas/turnos/pasajeros.");
+      }
+    };
+    loadOptions();
+    return () => { isMounted = false; };
+  }, [token]);
+
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!isFormReady) return;
 
@@ -247,8 +255,42 @@ export function Passengers() {
     if (editingId) {
       persist(items.map((item) => (item.id === editingId ? nextItem : item)));
     } else {
-      persist([nextItem, ...items]);
+      if (!token) {
+        setError("No hay sesión activa para guardar el pasajero.");
+        return;
+      }
+      try {
+        await createPassenger(token, {
+          school_id: school.id,
+          trip_id: trip.id,
+          shift_id: shift.id,
+          passenger_name: nextItem.passengerName,
+          passenger_last_name: nextItem.passengerLastName,
+          passenger_dni: nextItem.passengerDni,
+          passenger_birth_date: nextItem.passengerBirthDate,
+          is_adult_companion: nextItem.isAdultCompanion,
+          has_special_price: nextItem.hasSpecialPrice,
+          trip_value: nextItem.trip_value,
+          num_installments: nextItem.num_installments,
+          installments: nextItem.installments,
+          responsible: {
+            name: nextItem.responsible.name,
+            last_name: nextItem.responsible.lastName,
+            dni: nextItem.responsible.dni,
+            birth_date: nextItem.responsible.birthDate,
+            email: nextItem.responsible.email,
+            phone: nextItem.responsible.phone,
+            address: nextItem.responsible.address,
+            city: nextItem.responsible.city
+          }
+        });
+        await loadPassengers();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "No se pudo guardar el pasajero.");
+        return;
+      }
     }
+    setError(null);
 
     appendPassengerAudit({
       id: Date.now(),

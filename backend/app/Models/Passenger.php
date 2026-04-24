@@ -28,6 +28,31 @@ class Passenger extends Model
         'email',
     ];
 
+    public function trip()
+    {
+        return $this->belongsTo(Trip::class);
+    }
+
+    public function school()
+    {
+        return $this->belongsTo(School::class);
+    }
+
+    public function grade()
+    {
+        return $this->belongsTo(Grade::class);
+    }
+
+    public function shift()
+    {
+        return $this->belongsTo(Shift::class);
+    }
+
+    public function guardian()
+    {
+        return $this->belongsTo(Guardian::class);
+    }
+
     public function passenger_type()
     {
         return $this->belongsTo(PassengerType::class);

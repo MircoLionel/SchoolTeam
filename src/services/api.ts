@@ -164,6 +164,42 @@ export async function fetchPassengers(token: string) {
   return apiRequest<unknown>("/passengers", { token });
 }
 
+export interface CreatePassengerPayload {
+  school_id: number;
+  trip_id: number;
+  shift_id: number;
+  grade_id?: number;
+  grade_shift_id?: number;
+  passenger_type_id?: number;
+  passenger_name: string;
+  passenger_last_name: string;
+  passenger_dni: string;
+  passenger_birth_date: string;
+  is_adult_companion: boolean;
+  has_special_price: boolean;
+  trip_value: number;
+  num_installments: number;
+  installments: number[];
+  responsible: {
+    name: string;
+    last_name: string;
+    dni: string;
+    birth_date: string;
+    email: string;
+    phone: string;
+    address: string;
+    city: string;
+  };
+}
+
+export async function createPassenger(token: string, payload: CreatePassengerPayload) {
+  return apiRequest<unknown>("/passengers", {
+    method: "POST",
+    token,
+    body: JSON.stringify(payload)
+  });
+}
+
 export async function fetchAudit(token: string) {
   return apiRequest<unknown>("/audit", { token });
 }
@@ -374,4 +410,28 @@ export function extractCount(payload: unknown): number | null {
   }
 
   return null;
+}
+
+export function extractCollection<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) {
+    return payload as T[];
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return [];
+  }
+
+  const record = payload as Record<string, unknown>;
+  if (Array.isArray(record.data)) {
+    return record.data as T[];
+  }
+
+  if (record.data && typeof record.data === "object") {
+    const nested = record.data as Record<string, unknown>;
+    if (Array.isArray(nested.data)) {
+      return nested.data as T[];
+    }
+  }
+
+  return [];
 }

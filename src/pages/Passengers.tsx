@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { fetchSchools, fetchShifts, fetchTrips } from "../services/api";
+import { createPassenger, extractCollection, fetchPassengers, fetchSchools, fetchShifts, fetchTrips } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 import { appendPassengerAudit, PassengerItem, readStoredPassengers, saveStoredPassengers } from "../state/passengersStorage";
 import { readTripPriceSettings } from "./Trips";
@@ -16,7 +16,11 @@ interface TripItem {
   school_id?: number;
   school?: { id: number; name: string } | null;
   grade?: { id: number; name: string } | null;
+  grade_id?: number;
+  grade_shift_id?: number;
 }
+
+type ApiPassengerRecord = Record<string, unknown>;
 
 const initialForm = {
   passengerName: "",
@@ -107,7 +111,7 @@ function getInstallmentsFromTemplate(template: PassengerFormTemplate | null): nu
 export function Passengers() {
   const { token, user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [items, setItems] = useState<PassengerItem[]>(readStoredPassengers);
+  const [items, setItems] = useState<PassengerItem[]>([]);
   const [schools, setSchools] = useState<SchoolItem[]>([]);
   const [trips, setTrips] = useState<TripItem[]>([]);
   const [shifts, setShifts] = useState<ShiftItem[]>([]);
@@ -115,28 +119,6 @@ export function Passengers() {
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<PassengerForm>(() => mergeFormWithTemplate(readFormTemplate()));
   const [installments, setInstallments] = useState<number[]>(() => getInstallmentsFromTemplate(readFormTemplate()));
-
-  useEffect(() => {
-    let isMounted = true;
-    const loadOptions = async () => {
-      if (!token) return;
-      try {
-        const [schoolsResponse, tripsResponse, shiftsResponse] = await Promise.all([
-          fetchSchools(token), fetchTrips(token), fetchShifts(token)
-        ]);
-        if (!isMounted) return;
-        setSchools(Array.isArray(schoolsResponse) ? schoolsResponse : []);
-        setTrips(Array.isArray(tripsResponse) ? tripsResponse : []);
-        setShifts(Array.isArray(shiftsResponse) ? shiftsResponse : []);
-        setError(null);
-      } catch (err) {
-        if (!isMounted) return;
-        setError(err instanceof Error ? err.message : "No se pudieron cargar escuelas/salidas/turnos.");
-      }
-    };
-    loadOptions();
-    return () => { isMounted = false; };
-  }, [token]);
 
   const filteredTrips = useMemo(() => {
     if (!form.school_id) return [];
@@ -192,7 +174,160 @@ export function Passengers() {
     saveStoredPassengers(next);
   };
 
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const normalizePassengers = (
+    payload: unknown,
+    references?: { schools: SchoolItem[]; trips: TripItem[]; shifts: ShiftItem[] }
+  ): PassengerItem[] => {
+    const records = extractCollection<ApiPassengerRecord>(payload);
+    const sourceSchools = references?.schools ?? schools;
+    const sourceTrips = references?.trips ?? trips;
+    const sourceShifts = references?.shifts ?? shifts;
+
+    return records.map((record, index) => {
+      const id = Number(record.id ?? Date.now() + index);
+      const fullName = typeof record.full_name === "string" ? record.full_name.trim() : "";
+      const splitName = fullName ? fullName.split(/\s+/) : [];
+      const tripId = Number(record.trip_id ?? (record.trip as { id?: unknown } | undefined)?.id ?? 0);
+      const schoolId = Number(record.school_id ?? (record.school as { id?: unknown } | undefined)?.id ?? 0);
+      const shiftId = Number(record.shift_id ?? (record.shift as { id?: unknown } | undefined)?.id ?? 0);
+
+      const trip = sourceTrips.find((item) => item.id === tripId);
+      const school = sourceSchools.find((item) => item.id === schoolId);
+      const shift = sourceShifts.find((item) => item.id === shiftId);
+      const responsible = (record.responsible as Record<string, unknown> | undefined)
+        ?? (record.guardian as Record<string, unknown> | undefined)
+        ?? {};
+      const responsibleFullName = typeof responsible.full_name === "string" ? responsible.full_name.trim() : "";
+      const responsibleNameParts = responsibleFullName ? responsibleFullName.split(/\s+/) : [];
+      const installments = Array.isArray(record.installments)
+        ? (record.installments as unknown[]).map((value) =>
+          typeof value === "number"
+            ? value
+            : Number((value as { amount?: unknown } | undefined)?.amount ?? 0)
+        )
+        : [];
+
+      return {
+        id: Number.isFinite(id) ? id : Date.now() + index,
+        passengerName: typeof record.passengerName === "string"
+          ? record.passengerName
+          : typeof record.passenger_name === "string"
+            ? record.passenger_name
+            : splitName[0] ?? "",
+        passengerLastName: typeof record.passengerLastName === "string"
+          ? record.passengerLastName
+          : typeof record.passenger_last_name === "string"
+            ? record.passenger_last_name
+            : splitName.slice(1).join(" "),
+        passengerDni: String(record.passengerDni ?? record.passenger_dni ?? record.dni ?? ""),
+        passengerBirthDate: String(record.passengerBirthDate ?? record.passenger_birth_date ?? record.birthdate ?? ""),
+        school_id: schoolId,
+        school_name: typeof record.school_name === "string"
+          ? record.school_name
+          : typeof (record.school as { name?: unknown } | undefined)?.name === "string"
+            ? ((record.school as { name?: string }).name ?? "")
+            : (school?.name ?? ""),
+        trip_id: tripId,
+        trip_label: typeof record.trip_label === "string"
+          ? record.trip_label
+          : typeof (record.trip as { group_name?: unknown; year?: unknown; grade?: { name?: unknown } } | undefined)?.grade?.name === "string"
+            ? String((record.trip as { grade?: { name?: string } }).grade?.name ?? "")
+            : typeof (record.trip as { group_name?: unknown } | undefined)?.group_name === "string"
+              ? String((record.trip as { group_name?: string }).group_name ?? "")
+              : (trip?.grade?.name ?? trip?.group_name ?? String(trip?.year ?? "")),
+        trip_destination: String(
+          record.trip_destination
+          ?? (record.trip as { destination?: unknown } | undefined)?.destination
+          ?? trip?.destination
+          ?? ""
+        ),
+        trip_contract_number: String(
+          record.trip_contract_number
+          ?? (record.trip as { contract_number?: unknown } | undefined)?.contract_number
+          ?? trip?.contract_number
+          ?? ""
+        ),
+        shift_id: shiftId,
+        shift_name: typeof record.shift_name === "string"
+          ? record.shift_name
+          : typeof (record.shift as { name?: unknown } | undefined)?.name === "string"
+            ? String((record.shift as { name?: string }).name ?? "")
+            : (shift?.name ?? ""),
+        isAdultCompanion: Boolean(record.isAdultCompanion ?? record.is_adult_companion),
+        hasSpecialPrice: Boolean(record.hasSpecialPrice ?? record.has_special_price),
+        trip_value: Number(record.trip_value ?? record.tripValue ?? 0),
+        paid_amount: Number(record.paid_amount ?? record.paidAmount ?? 0),
+        num_installments: Number(record.num_installments ?? record.numInstallments ?? installments.length ?? 0),
+        installments,
+        responsible: {
+          name: String(
+            responsible.name
+            ?? responsible.first_name
+            ?? responsibleNameParts[0]
+            ?? ""
+          ),
+          lastName: String(
+            responsible.lastName
+            ?? responsible.last_name
+            ?? responsibleNameParts.slice(1).join(" ")
+            ?? ""
+          ),
+          dni: String(responsible.dni ?? ""),
+          birthDate: String(responsible.birthDate ?? responsible.birth_date ?? responsible.birthdate ?? ""),
+          email: String(responsible.email ?? ""),
+          phone: String(responsible.phone ?? ""),
+          address: String(responsible.address ?? ""),
+          city: String(responsible.city ?? responsible.locality ?? "")
+        },
+        created_by: String(record.created_by ?? ""),
+        created_at: String(record.created_at ?? ""),
+        last_modified_by: String(record.last_modified_by ?? ""),
+        last_modified_at: String(record.last_modified_at ?? ""),
+        last_modified_action: (record.last_modified_action as PassengerItem["last_modified_action"]) ?? "create"
+      };
+    });
+  };
+
+  const loadPassengers = async () => {
+    if (!token) return;
+    const response = await fetchPassengers(token);
+    const normalized = normalizePassengers(response);
+    console.log("[Passengers] normalized GET /passengers", normalized);
+    persist(normalized);
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadOptions = async () => {
+      if (!token) return;
+      try {
+        const [schoolsResponse, tripsResponse, shiftsResponse, passengersResponse] = await Promise.all([
+          fetchSchools(token), fetchTrips(token), fetchShifts(token), fetchPassengers(token)
+        ]);
+        if (!isMounted) return;
+        setSchools(Array.isArray(schoolsResponse) ? schoolsResponse : []);
+        const nextTrips = extractCollection<TripItem>(tripsResponse);
+        setTrips(nextTrips);
+        setShifts(Array.isArray(shiftsResponse) ? shiftsResponse : []);
+        const normalized = normalizePassengers(passengersResponse, {
+          schools: Array.isArray(schoolsResponse) ? schoolsResponse : [],
+          trips: nextTrips,
+          shifts: Array.isArray(shiftsResponse) ? shiftsResponse : []
+        });
+        console.log("[Passengers] normalized initial load", normalized);
+        persist(normalized);
+        setError(null);
+      } catch (err) {
+        if (!isMounted) return;
+        persist(readStoredPassengers());
+        setError(err instanceof Error ? err.message : "No se pudieron cargar escuelas/salidas/turnos/pasajeros.");
+      }
+    };
+    loadOptions();
+    return () => { isMounted = false; };
+  }, [token]);
+
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!isFormReady) return;
 
@@ -247,8 +382,45 @@ export function Passengers() {
     if (editingId) {
       persist(items.map((item) => (item.id === editingId ? nextItem : item)));
     } else {
-      persist([nextItem, ...items]);
+      if (!token) {
+        setError("No hay sesión activa para guardar el pasajero.");
+        return;
+      }
+      try {
+        await createPassenger(token, {
+          school_id: school.id,
+          trip_id: trip.id,
+          shift_id: shift.id,
+          grade_id: trip.grade_id ?? trip.grade?.id,
+          grade_shift_id: trip.grade_shift_id,
+          passenger_type_id: 1,
+          passenger_name: nextItem.passengerName,
+          passenger_last_name: nextItem.passengerLastName,
+          passenger_dni: nextItem.passengerDni,
+          passenger_birth_date: nextItem.passengerBirthDate,
+          is_adult_companion: nextItem.isAdultCompanion,
+          has_special_price: nextItem.hasSpecialPrice,
+          trip_value: nextItem.trip_value,
+          num_installments: nextItem.num_installments,
+          installments: nextItem.installments,
+          responsible: {
+            name: nextItem.responsible.name,
+            last_name: nextItem.responsible.lastName,
+            dni: nextItem.responsible.dni,
+            birth_date: nextItem.responsible.birthDate,
+            email: nextItem.responsible.email,
+            phone: nextItem.responsible.phone,
+            address: nextItem.responsible.address,
+            city: nextItem.responsible.city
+          }
+        });
+        await loadPassengers();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "No se pudo guardar el pasajero.");
+        return;
+      }
     }
+    setError(null);
 
     appendPassengerAudit({
       id: Date.now(),

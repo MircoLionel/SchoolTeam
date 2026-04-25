@@ -9,7 +9,10 @@ class PassengerType extends Model
 {
     use HasFactory;
 
+    public $timestamps = false;
+
     protected $fillable = [
+        'id',
         'name',
         'percentage',
     ];

@@ -22,11 +22,14 @@ class CheckbookPdfRenderRequest extends FormRequest
             'header.pax' => ['nullable', 'string', 'max:30'],
             'header.dni' => ['nullable', 'string', 'max:30'],
             'header.periodo' => ['nullable', 'string', 'max:50'],
+            'header.codigo' => ['nullable', 'string', 'max:80'],
             'installments' => ['required', 'array', 'min:1'],
             'installments.*.nro_cuota' => ['nullable', 'string', 'max:20'],
             'installments.*.numero' => ['nullable', 'integer', 'min:1'],
             'installments.*.importe' => ['nullable', 'numeric', 'min:0'],
             'installments.*.monto' => ['nullable', 'numeric', 'min:0'],
+            'installments.*.vencimiento' => ['nullable', 'string', 'max:40'],
+            'installments.*.due_date' => ['nullable', 'string', 'max:40'],
             'code' => ['nullable', 'string', 'max:80'],
         ];
     }

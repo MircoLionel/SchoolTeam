@@ -20,7 +20,7 @@ export function Accounts() {
   const { token, user } = useAuth();
   const [query, setQuery] = useState("");
   const [selectedSchool, setSelectedSchool] = useState<string>("all");
-  const [selectedTrip, setSelectedTrip] = useState("");
+  const [selectedTrip, setSelectedTrip] = useState("all");
   const [printAuditVersion, setPrintAuditVersion] = useState(0);
   const [tripDestinations, setTripDestinations] = useState<Record<number, string>>({});
   const [backendTrips, setBackendTrips] = useState<TripOption[]>([]);
@@ -112,14 +112,18 @@ export function Accounts() {
   }, [printAuditVersion]);
 
   const rows = useMemo(() => {
+    if (!passengers.length) {
+      return [];
+    }
+
     const normalized = query.trim().toLowerCase();
-    const hasQuery = normalized.length > 0;
 
     return passengers
       .filter((passenger) => {
         const isSchoolMatch = selectedSchool === "all" || passenger.school_name === selectedSchool;
         if (!isSchoolMatch) return false;
-        if (selectedTrip && passenger.trip_id !== Number(selectedTrip)) return false;
+        const hasTripFilter = selectedTrip !== "all" && selectedTrip !== "";
+        if (hasTripFilter && passenger.trip_id !== Number(selectedTrip)) return false;
         if (!normalized) return true;
         const fullName = `${passenger.passengerName} ${passenger.passengerLastName}`.toLowerCase();
         return (
@@ -268,7 +272,7 @@ export function Accounts() {
               className={`tab-btn ${selectedSchool === tab ? "active" : ""}`}
               onClick={() => {
                 setSelectedSchool(tab);
-                setSelectedTrip("");
+                setSelectedTrip("all");
               }}
             >
               {tab === "all" ? "Todas las escuelas" : tab}
@@ -278,7 +282,7 @@ export function Accounts() {
         <label className="field">
           <span>Salida (viaje)</span>
           <select value={selectedTrip} onChange={(event) => setSelectedTrip(event.target.value)}>
-            <option value="">Todas las salidas</option>
+            <option value="all">Todas las salidas</option>
             {tripOptions.map((trip) => (
               <option key={trip.id} value={trip.id}>
                 {trip.label}

@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { createPassenger, fetchSchools, fetchShifts, fetchTrips } from "../services/api";
+import { createPassenger, extractCollection, fetchSchools, fetchShifts, fetchTrips } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 import { appendPassengerAudit, PassengerItem, readStoredPassengers, saveStoredPassengers } from "../state/passengersStorage";
 import { readTripPriceSettings } from "./Trips";
@@ -126,7 +126,7 @@ export function Passengers() {
         ]);
         if (!isMounted) return;
         setSchools(Array.isArray(schoolsResponse) ? schoolsResponse : []);
-        setTrips(Array.isArray(tripsResponse) ? tripsResponse : []);
+        setTrips(extractCollection<TripItem>(tripsResponse));
         setShifts(Array.isArray(shiftsResponse) ? shiftsResponse : []);
         setError(null);
       } catch (err) {

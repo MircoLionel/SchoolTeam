@@ -40,6 +40,12 @@ class CheckbookController extends Controller
 
     public function renderPdf(CheckbookPdfRenderRequest $request, PdfService $pdfService): BinaryFileResponse|JsonResponse
     {
+        Log::info('CHECKBOOK REAL ROUTE HIT', [
+            'endpoint' => 'renderPdf_temporary_probe',
+        ]);
+
+        return response()->json(['hit' => true]);
+
         try {
             $payload = $request->validated();
 

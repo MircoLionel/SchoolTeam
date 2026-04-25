@@ -257,12 +257,23 @@ export function Accounts() {
 
       if (!response.ok) {
         let message = "No se pudo generar la chequera.";
+        const rawBody = await response.text();
+        let parsedBody: { message?: string; error?: string } | null = null;
+
         try {
-          const data = (await response.json()) as { message?: string; error?: string };
-          message = data.error ?? data.message ?? message;
+          parsedBody = JSON.parse(rawBody) as { message?: string; error?: string };
         } catch (parseError) {
           // ignore parse errors
         }
+
+        console.error("[Accounts] render-pdf failed response", {
+          status: response.status,
+          contentType,
+          bodyText: rawBody,
+          body: parsedBody
+        });
+
+        message = parsedBody?.error ?? parsedBody?.message ?? (rawBody || message);
         throw new Error(message);
       }
 

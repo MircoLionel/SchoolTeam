@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { createPassenger, extractCollection, fetchPassengers, fetchSchools, fetchShifts, fetchTrips } from "../services/api";
+import { createPassenger, deletePassenger, extractCollection, fetchPassengers, fetchSchools, fetchShifts, fetchTrips } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 import { appendPassengerAudit, PassengerItem, readStoredPassengers, saveStoredPassengers } from "../state/passengersStorage";
 
@@ -449,7 +449,23 @@ export function Passengers() {
     setInstallments(item.installments);
   };
 
-  const removeItem = (id: number) => persist(items.filter((item) => item.id !== id));
+  const removeItem = async (id: number) => {
+    if (!token) {
+      setError("No hay sesión activa para eliminar el pasajero.");
+      return;
+    }
+
+    const confirmed = window.confirm("¿Eliminar pasajero? Esta acción no se puede deshacer.");
+    if (!confirmed) return;
+
+    try {
+      await deletePassenger(token, id);
+      await loadPassengers({ schools, trips, shifts }, token);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo eliminar el pasajero.");
+    }
+  };
 
   const installmentInputs = Array.from({ length: visibleInstallmentsCount }, (_, index) => index);
 

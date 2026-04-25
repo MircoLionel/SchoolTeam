@@ -44,11 +44,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/reports/passengers', [ReportController::class, 'passengers']);
     Route::get('/reports/passenger-status', [ReportController::class, 'passengerStatus']);
-    Route::get('/reports/cashbox', [ReportController::class, 'cashbox'])->middleware('role:ADMIN');
-    Route::get('/reports/provider-profit', [ReportController::class, 'providerProfit'])->middleware('role:ADMIN');
+    Route::get('/reports/cashbox', [ReportController::class, 'cashbox']);
+    Route::get('/reports/provider-profit', [ReportController::class, 'providerProfit']);
 
-    Route::get('/audit', [AuditController::class, 'index'])->middleware('role:ADMIN');
-    Route::get('/users', [UserController::class, 'index'])->middleware('role:ADMIN');
-    Route::post('/users', [UserController::class, 'store'])->middleware('role:ADMIN');
-    Route::patch('/users/{user}', [UserController::class, 'update'])->middleware('role:ADMIN');
+    Route::get('/audit', [AuditController::class, 'index']);
+    Route::get('/users', [UserController::class, 'index']);
+    Route::post('/users', [UserController::class, 'store']);
+    Route::patch('/users/{user}', [UserController::class, 'update']);
 });

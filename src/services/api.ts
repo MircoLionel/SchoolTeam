@@ -200,6 +200,13 @@ export async function createPassenger(token: string, payload: CreatePassengerPay
   });
 }
 
+export async function deletePassenger(token: string, id: number) {
+  return apiRequest<{ message: string }>(`/passengers/${id}`, {
+    method: "DELETE",
+    token,
+  });
+}
+
 export async function fetchAudit(token: string) {
   return apiRequest<unknown>("/audit", { token });
 }

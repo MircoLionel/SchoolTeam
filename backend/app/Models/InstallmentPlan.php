@@ -9,6 +9,8 @@ class InstallmentPlan extends Model
 {
     use HasFactory;
 
+    public $timestamps = false;
+
     protected $fillable = [
         'passenger_id',
         'trip_id',

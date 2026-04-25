@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createTrip, fetchGrades, fetchSchools, fetchTrips } from "../services/api";
+import { createBudget, createTrip, extractCollection, fetchBudgets, fetchGrades, fetchSchools, fetchTrips, updateBudget } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 
 interface TripRecord {
@@ -9,34 +9,20 @@ interface TripRecord {
   destination: string;
   group_name: string;
   year: number;
+  trip_value?: number;
+  price_per_passenger?: number;
   estimated_date?: string | null;
   school?: { name: string } | null;
   grade?: { id: number; name: string } | null;
 }
-
-interface OptionItem {
+interface OptionItem { id: number; name: string }
+interface BudgetRecord {
   id: number;
-  name: string;
-}
-
-interface TripPriceSettings {
-  [tripId: string]: number;
-}
-
-export const TRIP_PRICE_STORAGE_KEY = "schoolteam.trip.price.settings";
-
-export function readTripPriceSettings(): TripPriceSettings {
-  const raw = localStorage.getItem(TRIP_PRICE_STORAGE_KEY);
-  if (!raw) return {};
-  try {
-    return JSON.parse(raw) as TripPriceSettings;
-  } catch {
-    return {};
-  }
-}
-
-function saveTripPriceSettings(next: TripPriceSettings) {
-  localStorage.setItem(TRIP_PRICE_STORAGE_KEY, JSON.stringify(next));
+  trip_id: number;
+  base_price_100: number;
+  suggested_installments?: number;
+  version?: number;
+  status?: string;
 }
 
 export function Trips() {
@@ -45,7 +31,8 @@ export function Trips() {
   const [trips, setTrips] = useState<TripRecord[]>([]);
   const [schools, setSchools] = useState<OptionItem[]>([]);
   const [grades, setGrades] = useState<OptionItem[]>([]);
-  const [tripPrices, setTripPrices] = useState<TripPriceSettings>(readTripPriceSettings);
+  const [tripPrices, setTripPrices] = useState<Record<number, number>>({});
+  const [budgetsByTrip, setBudgetsByTrip] = useState<Record<number, BudgetRecord>>({});
   const [visibleAdvanced, setVisibleAdvanced] = useState<Record<number, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -69,14 +56,41 @@ export function Trips() {
 
       setIsLoading(true);
       try {
-        const [tripsResponse, schoolsResponse, gradesResponse] = await Promise.all([
+        const [tripsResponse, schoolsResponse, gradesResponse, budgetsResponse] = await Promise.all([
           fetchTrips(token),
           fetchSchools(token),
-          fetchGrades(token)
+          fetchGrades(token),
+          fetchBudgets(token),
         ]);
 
         if (isMounted) {
-          setTrips(Array.isArray(tripsResponse) ? tripsResponse : []);
+          const tripItems = extractCollection<TripRecord>(tripsResponse);
+          const budgetItems = extractCollection<BudgetRecord>(budgetsResponse);
+          const budgetMap: Record<number, BudgetRecord> = {};
+
+          budgetItems.forEach((budget) => {
+            if (!budget?.trip_id) return;
+            const current = budgetMap[budget.trip_id];
+            if (!current || Number(budget.version ?? 0) >= Number(current.version ?? 0)) {
+              budgetMap[budget.trip_id] = budget;
+            }
+          });
+
+          const prices: Record<number, number> = {};
+          tripItems.forEach((trip) => {
+            const budget = budgetMap[trip.id];
+            const backendPrice = Number(
+              budget?.base_price_100
+              ?? trip.price_per_passenger
+              ?? trip.trip_value
+              ?? 0
+            );
+            prices[trip.id] = backendPrice;
+          });
+
+          setTrips(tripItems);
+          setBudgetsByTrip(budgetMap);
+          setTripPrices(prices);
           setSchools(Array.isArray(schoolsResponse) ? schoolsResponse : []);
           setGrades(Array.isArray(gradesResponse) ? gradesResponse : []);
           setError(null);
@@ -153,12 +167,50 @@ export function Trips() {
     }
   };
 
-  const updateTripPrice = (tripId: number, value: string) => {
+  const updateTripPrice = async (tripId: number, value: string) => {
     const parsed = Number(value);
-    if (!Number.isFinite(parsed) || parsed <= 0) return;
-    const next = { ...tripPrices, [tripId]: parsed };
-    setTripPrices(next);
-    saveTripPriceSettings(next);
+    if (!token || !Number.isFinite(parsed) || parsed <= 0) return;
+
+    setTripPrices((current) => ({ ...current, [tripId]: parsed }));
+
+    try {
+      const existingBudget = budgetsByTrip[tripId];
+
+      if (existingBudget?.id) {
+        await updateBudget(token, existingBudget.id, {
+          base_price_100: parsed,
+        });
+
+        setBudgetsByTrip((current) => ({
+          ...current,
+          [tripId]: { ...existingBudget, base_price_100: parsed },
+        }));
+      } else {
+        const created = await createBudget(token, {
+          trip_id: tripId,
+          base_price_100: parsed,
+          suggested_installments: 6,
+          version: 1,
+          status: "presentado",
+        });
+
+        const budget = created as BudgetRecord;
+        if (budget?.id) {
+          setBudgetsByTrip((current) => ({ ...current, [tripId]: budget }));
+        }
+      }
+
+      setTrips((current) =>
+        current.map((trip) =>
+          trip.id === tripId
+            ? { ...trip, trip_value: parsed, price_per_passenger: parsed }
+            : trip
+        )
+      );
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo guardar el precio del viaje.");
+    }
   };
 
   return (
@@ -303,8 +355,10 @@ export function Trips() {
                     <input
                       type="number"
                       min="1"
-                      defaultValue={tripPrices[trip.id] ?? 820000}
-                      onBlur={(event) => updateTripPrice(trip.id, event.target.value)}
+                      defaultValue={tripPrices[trip.id] ?? Number(trip.price_per_passenger ?? trip.trip_value ?? 0)}
+                      onBlur={(event) => {
+                        void updateTripPrice(trip.id, event.target.value);
+                      }}
                     />
                   </label>
                 ) : null}

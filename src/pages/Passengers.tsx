@@ -107,7 +107,7 @@ function getInstallmentsFromTemplate(template: PassengerFormTemplate | null): nu
 export function Passengers() {
   const { token, user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [items, setItems] = useState<PassengerItem[]>([]);
+  const [items, setItems] = useState<PassengerItem[]>(readStoredPassengers);
   const [schools, setSchools] = useState<SchoolItem[]>([]);
   const [trips, setTrips] = useState<TripItem[]>([]);
   const [shifts, setShifts] = useState<ShiftItem[]>([]);

@@ -3,7 +3,6 @@ import { useSearchParams } from "react-router-dom";
 import { createPassenger, extractCollection, fetchPassengers, fetchSchools, fetchShifts, fetchTrips } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 import { appendPassengerAudit, PassengerItem, readStoredPassengers, saveStoredPassengers } from "../state/passengersStorage";
-import { readTripPriceSettings } from "./Trips";
 
 interface SchoolItem { id: number; name: string }
 interface ShiftItem { id: number; name: string }
@@ -13,6 +12,9 @@ interface TripItem {
   destination?: string;
   contract_number?: string;
   year: number;
+  trip_value?: number;
+  price_per_passenger?: number;
+  latest_budget?: { base_price_100?: number } | null;
   school_id?: number;
   school?: { id: number; name: string } | null;
   grade?: { id: number; name: string } | null;
@@ -150,7 +152,13 @@ export function Passengers() {
   }, [form.school_id, trips]);
 
   function computeTripValue(tripId: number) {
-    const basePrice = readTripPriceSettings()[tripId] ?? 820000;
+    const trip = trips.find((item) => item.id === tripId);
+    const basePrice = Number(
+      trip?.trip_value
+      ?? trip?.price_per_passenger
+      ?? trip?.latest_budget?.base_price_100
+      ?? 0
+    );
     if (form.hasSpecialPrice) return Number(form.specialPrice);
     if (form.isAdultCompanion) return Math.round(basePrice * 0.3);
     return basePrice;

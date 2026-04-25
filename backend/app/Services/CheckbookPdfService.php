@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use setasign\Fpdi\Fpdi;
 use Throwable;
@@ -15,6 +16,12 @@ class CheckbookPdfService
      */
     public function generate(array $header, array $installments, ?string $outputFilename = null): string
     {
+        Log::info('CHECKBOOK PDF GENERATOR HIT', [
+            'outputFilename' => $outputFilename,
+            'header_keys' => array_keys($header),
+            'installments_count' => count($installments),
+        ]);
+
         if ($installments === []) {
             throw new RuntimeException('No se recibieron cuotas para generar la chequera.');
         }
@@ -323,10 +330,15 @@ class CheckbookPdfService
 
     private function printDebugMarker(Fpdi $pdf): void
     {
-        $pdf->SetFont('Helvetica', 'B', 22);
+        $pdf->SetFont('Helvetica', 'B', 28);
         $pdf->SetTextColor(220, 0, 0);
-        $pdf->SetXY(10, 10);
-        $pdf->Cell(0, 10, $this->sanitize('TEST CHEQUERA'), 0, 1, 'L');
+        $pdf->SetXY(10, 14);
+        $pdf->Cell(0, 14, $this->sanitize('TEST CHEQUERA'), 0, 1, 'L');
+
+        // Marca extra al centro para verificar overlay aún si el encabezado no se ve.
+        $pdf->SetFont('Helvetica', 'B', 16);
+        $pdf->SetXY(60, 145);
+        $pdf->Cell(90, 10, $this->sanitize('TEST CHEQUERA'), 0, 1, 'C');
 
         // Restaurar color por defecto para el resto de campos.
         $pdf->SetTextColor(0, 0, 0);

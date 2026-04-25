@@ -98,7 +98,11 @@ class PassengerController extends Controller
                 $guardianId = $guardian->id;
             }
 
-            $passengerTypeId = $validated['passenger_type_id'] ?? null;
+            $passengerTypeId = $validated['passenger_type_id']
+                ?? PassengerType::query()->firstOrCreate(
+                    ['name' => 'Alumno 100%'],
+                    ['percentage' => 100]
+                )->id;
 
             $fullName = trim((string) ($validated['full_name']
                 ?? (($validated['passenger_name'] ?? '') . ' ' . ($validated['passenger_last_name'] ?? ''))));

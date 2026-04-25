@@ -199,8 +199,9 @@ export function Passengers() {
     const basic = form.passengerName.trim() && form.passengerLastName.trim() && form.passengerDni.trim() &&
       form.passengerBirthDate && form.school_id && form.trip_id && form.shift_id &&
       form.responsibleName.trim() && form.responsibleLastName.trim() && form.dni.trim() && form.birthDate &&
-      form.email.includes("@") && form.phone.trim() && form.address.trim() && form.city.trim();
+      form.phone.trim();
     if (!basic) return false;
+    if (form.email.trim() && !form.email.includes("@")) return false;
     if (form.hasSpecialPrice) return Number(form.specialPrice) > 0;
     return true;
   }, [form]);
@@ -541,13 +542,13 @@ export function Passengers() {
 
         <div className="form-row">
           <label className="field"><span>Fecha nac. responsable</span><input type="date" value={form.birthDate} onChange={(e)=>setForm(c=>({...c,birthDate:e.target.value}))} required /></label>
-          <label className="field"><span>Email</span><input type="email" value={form.email} onChange={(e)=>setForm(c=>({...c,email:e.target.value}))} required /></label>
+          <label className="field"><span>Email</span><input type="email" value={form.email} onChange={(e)=>setForm(c=>({...c,email:e.target.value}))} /></label>
           <label className="field"><span>Teléfono</span><input value={form.phone} onChange={(e)=>setForm(c=>({...c,phone:e.target.value}))} required /></label>
         </div>
 
         <div className="form-row">
-          <label className="field"><span>Dirección</span><input value={form.address} onChange={(e)=>setForm(c=>({...c,address:e.target.value}))} required /></label>
-          <label className="field"><span>Ciudad</span><input value={form.city} onChange={(e)=>setForm(c=>({...c,city:e.target.value}))} required /></label>
+          <label className="field"><span>Dirección</span><input value={form.address} onChange={(e)=>setForm(c=>({...c,address:e.target.value}))} /></label>
+          <label className="field"><span>Ciudad</span><input value={form.city} onChange={(e)=>setForm(c=>({...c,city:e.target.value}))} /></label>
         </div>
 
         <div className="form-actions"><button type="submit" className="btn" disabled={!isFormReady}>{editingId ? "Guardar cambios" : "Guardar pasajero"}</button></div>

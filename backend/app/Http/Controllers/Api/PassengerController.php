@@ -35,6 +35,16 @@ class PassengerController extends Controller
     public function store(Request $request)
     {
         try {
+            $responsible = $request->input('responsible', []);
+            if (is_array($responsible)) {
+                foreach (['email', 'address', 'city'] as $field) {
+                    if (array_key_exists($field, $responsible) && trim((string) $responsible[$field]) === '') {
+                        $responsible[$field] = null;
+                    }
+                }
+                $request->merge(['responsible' => $responsible]);
+            }
+
             $payload = $request->all();
 
             Log::info('PassengerController@store payload recibido.', [

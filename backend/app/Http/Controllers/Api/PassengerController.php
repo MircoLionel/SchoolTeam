@@ -4,8 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Guardian;
+use App\Models\Installment;
+use App\Models\InstallmentPlan;
 use App\Models\Passenger;
+use App\Models\PassengerType;
+use App\Models\Payment;
 use App\Models\Trip;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -16,13 +21,15 @@ class PassengerController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Passenger::query()->with(['trip', 'school', 'grade', 'shift', 'guardian', 'passenger_type']);
+        $query = Passenger::query()->with(['trip.latestBudget', 'school', 'grade', 'shift', 'guardian', 'passenger_type']);
 
         if ($request->filled('trip_id')) {
             $query->where('trip_id', $request->integer('trip_id'));
         }
 
-        return response()->json($query->latest('id')->get());
+        $passengers = $query->latest('id')->get();
+
+        return response()->json($this->serializePassengers($passengers));
     }
 
     public function store(Request $request)
@@ -68,6 +75,10 @@ class PassengerController extends Controller
                 'responsible.phone' => ['nullable', 'string', 'max:100'],
                 'responsible.address' => ['nullable', 'string', 'max:255'],
                 'responsible.city' => ['nullable', 'string', 'max:255'],
+                'trip_value' => ['nullable', 'numeric', 'min:0'],
+                'num_installments' => ['nullable', 'integer', 'min:1', 'max:24'],
+                'installments' => ['nullable', 'array'],
+                'installments.*' => ['nullable', 'numeric', 'min:0'],
             ]);
 
             Log::info('PassengerController@store datos validados.', [
@@ -107,8 +118,8 @@ class PassengerController extends Controller
             $fullName = trim((string) ($validated['full_name']
                 ?? (($validated['passenger_name'] ?? '') . ' ' . ($validated['passenger_last_name'] ?? ''))));
 
-            $passenger = DB::transaction(function () use ($validated, $guardianId, $passengerTypeId, $fullName, $trip) {
-                return Passenger::query()->create([
+            $passenger = DB::transaction(function () use ($validated, $guardianId, $passengerTypeId, $fullName, $trip, $request) {
+                $createdPassenger = Passenger::query()->create([
                     'trip_id' => $validated['trip_id'],
                     'school_id' => $validated['school_id'],
                     'grade_id' => $validated['grade_id'] ?? $trip->grade_id,
@@ -126,6 +137,10 @@ class PassengerController extends Controller
                     'phone' => $validated['phone'] ?? null,
                     'email' => $validated['email'] ?? null,
                 ]);
+
+                $this->upsertPassengerFinancials($createdPassenger, $validated, (int) $request->user()->id);
+
+                return $createdPassenger;
             });
 
             $passengerCount = Passenger::query()->count();
@@ -135,7 +150,9 @@ class PassengerController extends Controller
                 'passengers_count' => $passengerCount,
             ]);
 
-            return response()->json($passenger->load(['trip', 'school', 'grade', 'shift', 'guardian', 'passenger_type']), 201);
+            $passenger->load(['trip.latestBudget', 'school', 'grade', 'shift', 'guardian', 'passenger_type']);
+
+            return response()->json($this->serializePassenger($passenger), 201);
         } catch (ValidationException $e) {
             Log::error('Passenger create failed by validation', [
                 'error' => $e->getMessage(),
@@ -155,7 +172,9 @@ class PassengerController extends Controller
 
     public function show(Passenger $passenger)
     {
-        return response()->json($passenger->load(['trip', 'school', 'grade', 'shift', 'guardian', 'passenger_type']));
+        $passenger->load(['trip.latestBudget', 'school', 'grade', 'shift', 'guardian', 'passenger_type']);
+
+        return response()->json($this->serializePassenger($passenger));
     }
 
     public function update(Request $request, Passenger $passenger)
@@ -177,11 +196,24 @@ class PassengerController extends Controller
             'postal_code' => ['nullable', 'string', 'max:50'],
             'phone' => ['nullable', 'string', 'max:100'],
             'email' => ['nullable', 'email', 'max:255'],
+            'trip_value' => ['sometimes', 'numeric', 'min:0'],
+            'num_installments' => ['sometimes', 'integer', 'min:1', 'max:24'],
+            'installments' => ['sometimes', 'array'],
+            'installments.*' => ['nullable', 'numeric', 'min:0'],
         ]);
 
-        $passenger->update($data);
+        $financialPayload = array_intersect_key($data, array_flip(['trip_value', 'num_installments', 'installments']));
+        $passengerData = array_diff_key($data, $financialPayload);
 
-        return response()->json($passenger->load(['trip', 'school', 'grade', 'shift', 'guardian', 'passenger_type']));
+        $passenger->update($passengerData);
+
+        if ($financialPayload !== []) {
+            $this->upsertPassengerFinancials($passenger, $financialPayload, (int) $request->user()->id);
+        }
+
+        $passenger->load(['trip.latestBudget', 'school', 'grade', 'shift', 'guardian', 'passenger_type']);
+
+        return response()->json($this->serializePassenger($passenger));
     }
 
     public function destroy(Passenger $passenger)
@@ -189,5 +221,119 @@ class PassengerController extends Controller
         $passenger->delete();
 
         return response()->json(['message' => 'Eliminado']);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function serializePassengers(Collection $passengers): array
+    {
+        return $passengers->map(fn (Passenger $passenger) => $this->serializePassenger($passenger))->all();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function serializePassenger(Passenger $passenger): array
+    {
+        $plan = InstallmentPlan::query()
+            ->where('passenger_id', $passenger->id)
+            ->where('trip_id', $passenger->trip_id)
+            ->latest('id')
+            ->first();
+
+        $installments = $plan
+            ? Installment::query()
+                ->where('plan_id', $plan->id)
+                ->orderBy('number')
+                ->pluck('amount_planned')
+                ->map(fn ($amount) => (float) $amount)
+                ->all()
+            : [];
+
+        $total = $plan?->total !== null
+            ? (float) $plan->total
+            : (float) ($passenger->trip?->latestBudget?->base_price_100 ?? 0);
+
+        $paid = (float) Payment::query()
+            ->where('passenger_id', $passenger->id)
+            ->where('trip_id', $passenger->trip_id)
+            ->sum('amount_total');
+
+        $lastModifiedAt = max(
+            strtotime((string) $passenger->updated_at),
+            $plan?->updated_at ? strtotime((string) $plan->updated_at) : 0
+        );
+
+        return array_merge($passenger->toArray(), [
+            'trip_value' => $total,
+            'num_installments' => (int) ($plan?->count ?? count($installments)),
+            'installments' => $installments,
+            'paid_amount' => $paid,
+            'balance' => $paid - $total,
+            'remaining_amount' => max(0, $total - $paid),
+            'last_modified_by' => $passenger->updated_by ?? null,
+            'last_modified_at' => $lastModifiedAt > 0 ? date('Y-m-d H:i:s', $lastModifiedAt) : null,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function upsertPassengerFinancials(Passenger $passenger, array $payload, int $createdBy): void
+    {
+        $tripValue = array_key_exists('trip_value', $payload)
+            ? (float) $payload['trip_value']
+            : (float) ($passenger->trip?->latestBudget?->base_price_100 ?? 0);
+
+        $count = array_key_exists('num_installments', $payload)
+            ? max(1, (int) $payload['num_installments'])
+            : 8;
+
+        $incomingInstallments = array_values(array_map(
+            fn ($amount) => (float) $amount,
+            array_filter((array) ($payload['installments'] ?? []), fn ($value) => $value !== null)
+        ));
+
+        if ($incomingInstallments === []) {
+            $baseAmount = $count > 0 ? round($tripValue / $count, 2) : 0;
+            $incomingInstallments = array_fill(0, $count, $baseAmount);
+            if ($incomingInstallments !== []) {
+                $incomingInstallments[$count - 1] = round($tripValue - array_sum(array_slice($incomingInstallments, 0, $count - 1)), 2);
+            }
+        }
+
+        $count = max($count, count($incomingInstallments));
+
+        $plan = InstallmentPlan::query()
+            ->where('passenger_id', $passenger->id)
+            ->where('trip_id', $passenger->trip_id)
+            ->latest('id')
+            ->first();
+
+        if (! $plan) {
+            $plan = InstallmentPlan::query()->create([
+                'passenger_id' => $passenger->id,
+                'trip_id' => $passenger->trip_id,
+                'count' => $count,
+                'total' => $tripValue,
+                'created_by' => $createdBy,
+            ]);
+        } else {
+            $plan->update([
+                'count' => $count,
+                'total' => $tripValue,
+            ]);
+            Installment::query()->where('plan_id', $plan->id)->delete();
+        }
+
+        foreach ($incomingInstallments as $index => $amount) {
+            Installment::query()->create([
+                'plan_id' => $plan->id,
+                'number' => $index + 1,
+                'amount_planned' => $amount,
+                'status' => 'PENDING',
+            ]);
+        }
     }
 }

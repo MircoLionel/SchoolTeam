@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use setasign\Fpdi\Fpdi;
 use Throwable;
@@ -16,12 +15,6 @@ class CheckbookPdfService
      */
     public function generate(array $header, array $installments, ?string $outputFilename = null): string
     {
-        Log::info('CHECKBOOK REAL GENERATOR HIT', [
-            'outputFilename' => $outputFilename,
-            'header_keys' => array_keys($header),
-            'installments_count' => count($installments),
-        ]);
-
         if ($installments === []) {
             throw new RuntimeException('No se recibieron cuotas para generar la chequera.');
         }
@@ -57,7 +50,6 @@ class CheckbookPdfService
         $pdf->SetAutoPageBreak(false);
         $templateSourcePath = $templatePath;
         $templateId = null;
-        $templateSize = null;
 
         if (! $this->isImageTemplate($templatePath)) {
             $sourcePage = (int) config('checkbook_pdf.source_page', 1);
@@ -68,21 +60,16 @@ class CheckbookPdfService
             }
 
             $templateId = $pdf->importPage($sourcePage);
-            $templateSize = $pdf->getTemplateSize($templateId);
         }
 
         // Regla solicitada: 1-3 cuotas => 1 página, 4-6 => 2, etc.
         foreach (array_chunk($installments, 3) as $installmentsPageGroup) {
-            if ($templateId !== null && is_array($templateSize)) {
-                $orientation = ($templateSize['width'] ?? 0) > ($templateSize['height'] ?? 0) ? 'L' : 'P';
-                $pdf->addPage($orientation, [(float) ($templateSize['width'] ?? 210), (float) ($templateSize['height'] ?? 297)]);
-                $pdf->useTemplate($templateId, 0, 0, (float) ($templateSize['width'] ?? 210), (float) ($templateSize['height'] ?? 297), true);
+            $pdf->addPage();
+            if ($templateId !== null) {
+                $pdf->useTemplate($templateId, 0, 0);
             } else {
-                $pdf->addPage('P', 'A4');
                 $pdf->Image($templatePath, 0, 0, 210, 297);
             }
-
-            $this->printDebugMarker($pdf);
 
             foreach ($couponPositions as $couponIndex => $couponPosition) {
                 $installment = $installmentsPageGroup[$couponIndex] ?? null;
@@ -301,8 +288,6 @@ class CheckbookPdfService
             'dni' => (string) ($header['dni'] ?? ''),
             'periodo' => (string) ($header['periodo'] ?? ''),
             'nro_cuota' => (string) ($installment['nro_cuota'] ?? $installment['numero'] ?? ''),
-            'vencimiento' => (string) ($installment['vencimiento'] ?? $installment['due_date'] ?? '-'),
-            'codigo' => (string) ($header['codigo'] ?? ''),
             // En el cuadro de vencimiento va solo el importe.
             'importe' => $this->formatAmount($installment['importe'] ?? $installment['monto'] ?? 0),
         ];
@@ -325,23 +310,6 @@ class CheckbookPdfService
             $pdf->SetXY($x, $y);
             $pdf->Cell($width, $height, $this->sanitize($this->truncate($text)), 0, 0, $align);
         }
-    }
-
-
-    private function printDebugMarker(Fpdi $pdf): void
-    {
-        $pdf->SetFont('Helvetica', 'B', 28);
-        $pdf->SetTextColor(220, 0, 0);
-        $pdf->SetXY(10, 14);
-        $pdf->Cell(0, 14, $this->sanitize('TEST CHEQUERA REAL'), 0, 1, 'L');
-
-        // Marca extra al centro para verificar overlay aún si el encabezado no se ve.
-        $pdf->SetFont('Helvetica', 'B', 16);
-        $pdf->SetXY(60, 145);
-        $pdf->Cell(90, 10, $this->sanitize('TEST CHEQUERA REAL'), 0, 1, 'C');
-
-        // Restaurar color por defecto para el resto de campos.
-        $pdf->SetTextColor(0, 0, 0);
     }
 
     private function formatAmount(mixed $amount): string

@@ -10,6 +10,8 @@ class Installment extends Model
 {
     use HasFactory;
 
+    public $timestamps = false;
+
     protected $fillable = [
         'plan_id',
         'number',

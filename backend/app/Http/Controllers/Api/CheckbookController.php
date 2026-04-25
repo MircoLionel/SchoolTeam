@@ -29,7 +29,7 @@ class CheckbookController extends Controller
 
     public function downloadPdf(Checkbook $checkbook)
     {
-        Log::info('CHECKBOOK PDF ROUTE HIT', [
+        Log::info('CHECKBOOK REAL ROUTE HIT', [
             'endpoint' => 'downloadPdf',
             'checkbook_id' => $checkbook->id,
             'code' => $checkbook->code,
@@ -43,7 +43,7 @@ class CheckbookController extends Controller
         try {
             $payload = $request->validated();
 
-            Log::info('CHECKBOOK PDF ROUTE HIT', [
+            Log::info('CHECKBOOK REAL ROUTE HIT', [
                 'endpoint' => 'renderPdf',
                 'code' => $payload['code'] ?? null,
                 'installments_count' => is_array($payload['installments'] ?? null) ? count($payload['installments']) : 0,

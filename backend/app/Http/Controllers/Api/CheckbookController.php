@@ -10,6 +10,7 @@ use App\Models\Checkbook;
 use App\Services\CheckbookService;
 use App\Services\PdfService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Throwable;
 
@@ -28,6 +29,12 @@ class CheckbookController extends Controller
 
     public function downloadPdf(Checkbook $checkbook)
     {
+        Log::info('CHECKBOOK REAL ROUTE HIT', [
+            'endpoint' => 'downloadPdf',
+            'checkbook_id' => $checkbook->id,
+            'code' => $checkbook->code,
+        ]);
+
         return response()->json(['pdf' => $checkbook->code . '.pdf']);
     }
 
@@ -35,6 +42,13 @@ class CheckbookController extends Controller
     {
         try {
             $payload = $request->validated();
+
+            Log::info('CHECKBOOK REAL ROUTE HIT', [
+                'endpoint' => 'renderPdf',
+                'code' => $payload['code'] ?? null,
+                'installments_count' => is_array($payload['installments'] ?? null) ? count($payload['installments']) : 0,
+            ]);
+
             $path = $pdfService->renderCheckbookPdf($payload);
 
             AuditLog::create([

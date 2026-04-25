@@ -14,7 +14,7 @@ interface TripItem {
   year: number;
   trip_value?: number;
   price_per_passenger?: number;
-  latest_budget?: { base_price_100?: number } | null;
+  latest_budget?: { base_price_100?: number; price_per_passenger?: number } | null;
   school_id?: number;
   school?: { id: number; name: string } | null;
   grade?: { id: number; name: string } | null;
@@ -154,8 +154,9 @@ export function Passengers() {
   function computeTripValue(tripId: number) {
     const trip = trips.find((item) => item.id === tripId);
     const basePrice = Number(
-      trip?.trip_value
-      ?? trip?.price_per_passenger
+      trip?.price_per_passenger
+      ?? trip?.trip_value
+      ?? trip?.latest_budget?.price_per_passenger
       ?? trip?.latest_budget?.base_price_100
       ?? 0
     );
@@ -168,6 +169,10 @@ export function Passengers() {
     () => trips.find((trip) => trip.id === Number(form.trip_id)),
     [form.trip_id, trips]
   );
+
+  useEffect(() => {
+    console.log("SELECTED TRIP PRICE", selectedTrip);
+  }, [selectedTrip]);
 
   const tripValueForSummary = useMemo(() => {
     if (!form.trip_id) return 0;
@@ -238,6 +243,7 @@ export function Passengers() {
 
       const tripValue = Number(
         record.trip_value
+        ?? (record.trip as { latest_budget?: { price_per_passenger?: unknown } } | undefined)?.latest_budget?.price_per_passenger
         ?? (record.trip as { latest_budget?: { base_price_100?: unknown } } | undefined)?.latest_budget?.base_price_100
         ?? 0
       );

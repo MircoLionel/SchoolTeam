@@ -78,7 +78,11 @@ class TripController extends Controller
      */
     private function serializeTrip(Trip $trip): array
     {
-        $price = (float) ($trip->latestBudget?->base_price_100 ?? 0);
+        $price = (float) (
+            $trip->latestBudget?->price_per_passenger
+            ?? $trip->latestBudget?->base_price_100
+            ?? 0
+        );
 
         return array_merge($trip->toArray(), [
             'trip_value' => $price,

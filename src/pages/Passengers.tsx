@@ -333,7 +333,7 @@ export function Passengers() {
     return () => { isMounted = false; };
   }, [token]);
 
-  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     console.log("SUBMIT OK");
     if (!isFormReady) return;
@@ -511,7 +511,7 @@ export function Passengers() {
 
       {error ? <p className="form-error">{error}</p> : null}
 
-      <form className="card form-grid" onSubmit={onSubmit}>
+      <form className="card form-grid" onSubmit={handleSubmit}>
         <div className="form-row">
           <label className="field"><span>Nombre pasajero</span><input value={form.passengerName} onChange={(e)=>setForm(c=>({...c,passengerName:e.target.value}))} required /></label>
           <label className="field"><span>Apellido pasajero</span><input value={form.passengerLastName} onChange={(e)=>setForm(c=>({...c,passengerLastName:e.target.value}))} required /></label>
@@ -572,7 +572,7 @@ export function Passengers() {
           <label className="field"><span>Ciudad</span><input value={form.city} onChange={(e)=>setForm(c=>({...c,city:e.target.value}))} required /></label>
         </div>
 
-        <div className="form-actions"><button type="submit" className="btn" disabled={!isFormReady}>{editingId ? "Guardar cambios" : "Guardar pasajero"}</button></div>
+        <div className="form-actions"><button type="submit" className="btn">{editingId ? "Guardar cambios" : "Guardar pasajero"}</button></div>
       </form>
 
       <div className="card placeholder-table">

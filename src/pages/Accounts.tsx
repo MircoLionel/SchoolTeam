@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchTrips, renderCheckbookPdf } from "../services/api";
+import { extractCollection, fetchTrips, renderCheckbookPdf } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 import { appendPassengerAudit, getPassengerBalance, readPassengerAudit, readStoredPassengers } from "../state/passengersStorage";
 
@@ -10,6 +10,11 @@ const currencyFormatter = new Intl.NumberFormat("es-AR", {
   maximumFractionDigits: 0
 });
 
+interface TripOption {
+  id: number;
+  label: string;
+}
+
 export function Accounts() {
   const navigate = useNavigate();
   const { token, user } = useAuth();
@@ -18,6 +23,7 @@ export function Accounts() {
   const [selectedTrip, setSelectedTrip] = useState("");
   const [printAuditVersion, setPrintAuditVersion] = useState(0);
   const [tripDestinations, setTripDestinations] = useState<Record<number, string>>({});
+  const [backendTrips, setBackendTrips] = useState<TripOption[]>([]);
 
   const passengers = useMemo(() => readStoredPassengers(), []);
 
@@ -26,19 +32,37 @@ export function Accounts() {
 
     fetchTrips(token)
       .then((payload) => {
-        if (!Array.isArray(payload)) return;
+        const records = extractCollection<Record<string, unknown>>(payload);
+        if (!records.length) return;
 
         const map: Record<number, string> = {};
-        payload.forEach((trip) => {
+        const options: TripOption[] = [];
+
+        records.forEach((trip) => {
           if (!trip || typeof trip !== "object") return;
-          const candidate = trip as Record<string, unknown>;
-          const id = Number(candidate.id);
-          const destination = typeof candidate.destination === "string" ? candidate.destination.trim() : "";
-          if (!Number.isFinite(id) || !destination) return;
-          map[id] = destination;
+          const id = Number(trip.id);
+          if (!Number.isFinite(id)) return;
+
+          const destination = typeof trip.destination === "string" ? trip.destination.trim() : "";
+          if (destination) {
+            map[id] = destination;
+          }
+
+          const label = String(
+            (trip.grade as { name?: unknown } | undefined)?.name
+            ?? trip.group_name
+            ?? trip.destination
+            ?? `Viaje #${id}`
+          ).trim();
+
+          options.push({
+            id,
+            label: label || `Viaje #${id}`,
+          });
         });
 
         setTripDestinations(map);
+        setBackendTrips(options.sort((a, b) => a.label.localeCompare(b.label, "es")));
       })
       .catch(() => {
         // ignore: mantenemos fallback con datos locales
@@ -53,21 +77,22 @@ export function Accounts() {
   }, [passengers]);
 
   const tripOptions = useMemo(() => {
-    const scoped = selectedSchool === "all"
-      ? passengers
-      : passengers.filter((passenger) => passenger.school_name === selectedSchool);
+    if (selectedSchool === "all") {
+      return backendTrips;
+    }
 
-    const unique = new Map<number, string>();
-    scoped.forEach((passenger) => {
-      if (!unique.has(passenger.trip_id)) {
-        unique.set(passenger.trip_id, passenger.trip_label);
-      }
-    });
+    const schoolTripIds = new Set(
+      passengers
+        .filter((passenger) => passenger.school_name === selectedSchool)
+        .map((passenger) => passenger.trip_id)
+    );
 
-    return Array.from(unique.entries())
-      .map(([id, label]) => ({ id, label }))
-      .sort((a, b) => a.label.localeCompare(b.label, "es"));
-  }, [passengers, selectedSchool]);
+    if (schoolTripIds.size === 0) {
+      return backendTrips;
+    }
+
+    return backendTrips.filter((trip) => schoolTripIds.has(trip.id));
+  }, [backendTrips, passengers, selectedSchool]);
 
 
   const lastPrintByPassenger = useMemo(() => {
@@ -94,8 +119,8 @@ export function Accounts() {
       .filter((passenger) => {
         const isSchoolMatch = selectedSchool === "all" || passenger.school_name === selectedSchool;
         if (!isSchoolMatch) return false;
-        if (!hasQuery && (!selectedTrip || passenger.trip_id !== Number(selectedTrip))) return false;
-        if (!normalized) return selectedTrip ? passenger.trip_id === Number(selectedTrip) : true;
+        if (selectedTrip && passenger.trip_id !== Number(selectedTrip)) return false;
+        if (!normalized) return true;
         const fullName = `${passenger.passengerName} ${passenger.passengerLastName}`.toLowerCase();
         return (
           fullName.includes(normalized) ||
@@ -252,8 +277,8 @@ export function Accounts() {
         </div>
         <label className="field">
           <span>Salida (viaje)</span>
-          <select value={selectedTrip} onChange={(event) => setSelectedTrip(event.target.value)} required>
-            <option value="">Seleccionar salida</option>
+          <select value={selectedTrip} onChange={(event) => setSelectedTrip(event.target.value)}>
+            <option value="">Todas las salidas</option>
             {tripOptions.map((trip) => (
               <option key={trip.id} value={trip.id}>
                 {trip.label}
@@ -272,8 +297,7 @@ export function Accounts() {
       </div>
 
       <div className="card account-list">
-        {!selectedTrip && !query.trim() ? <p>Seleccioná una salida para ver estado de cuenta e imprimir chequeras.</p> : null}
-        {(selectedTrip || query.trim()) && rows.length === 0 ? <p>No hay pasajeros para el filtro seleccionado.</p> : null}
+        {rows.length === 0 ? <p>No hay pasajeros para el filtro seleccionado.</p> : null}
 
         {rows.map((row) => (
           <article key={row.id} className="account-item">

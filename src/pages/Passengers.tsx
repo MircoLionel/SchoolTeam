@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { createPassenger, extractCollection, fetchPassengers, fetchSchools, fetchShifts, fetchTrips } from "../services/api";
+import { PassengerType, createPassenger, extractCollection, fetchPassengerTypes, fetchPassengers, fetchSchools, fetchShifts, fetchTrips } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 import { appendPassengerAudit, PassengerItem, readStoredPassengers, saveStoredPassengers } from "../state/passengersStorage";
 import { readTripPriceSettings } from "./Trips";
@@ -30,6 +30,7 @@ const initialForm = {
   school_id: "",
   trip_id: "",
   shift_id: "",
+  passenger_type_id: "",
   isAdultCompanion: false,
   hasSpecialPrice: false,
   specialPrice: "",
@@ -52,6 +53,7 @@ interface PassengerFormTemplate {
   school_id: string;
   trip_id: string;
   shift_id: string;
+  passenger_type_id: string;
   isAdultCompanion: boolean;
   hasSpecialPrice: boolean;
   specialPrice: string;
@@ -76,6 +78,7 @@ function readFormTemplate(): PassengerFormTemplate | null {
       school_id: String(parsed.school_id ?? ""),
       trip_id: String(parsed.trip_id ?? ""),
       shift_id: String(parsed.shift_id ?? ""),
+      passenger_type_id: String(parsed.passenger_type_id ?? ""),
       isAdultCompanion: Boolean(parsed.isAdultCompanion),
       hasSpecialPrice: Boolean(parsed.hasSpecialPrice),
       specialPrice: String(parsed.specialPrice ?? ""),
@@ -96,6 +99,7 @@ function mergeFormWithTemplate(template: PassengerFormTemplate | null): Passenge
     school_id: template.school_id,
     trip_id: template.trip_id,
     shift_id: template.shift_id,
+    passenger_type_id: template.passenger_type_id,
     isAdultCompanion: template.isAdultCompanion,
     hasSpecialPrice: template.hasSpecialPrice,
     specialPrice: template.specialPrice,
@@ -115,6 +119,7 @@ export function Passengers() {
   const [schools, setSchools] = useState<SchoolItem[]>([]);
   const [trips, setTrips] = useState<TripItem[]>([]);
   const [shifts, setShifts] = useState<ShiftItem[]>([]);
+  const [passengerTypes, setPassengerTypes] = useState<PassengerType[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<PassengerForm>(() => mergeFormWithTemplate(readFormTemplate()));
@@ -301,14 +306,15 @@ export function Passengers() {
     const loadOptions = async () => {
       if (!token) return;
       try {
-        const [schoolsResponse, tripsResponse, shiftsResponse, passengersResponse] = await Promise.all([
-          fetchSchools(token), fetchTrips(token), fetchShifts(token), fetchPassengers(token)
+        const [schoolsResponse, tripsResponse, shiftsResponse, passengerTypesResponse, passengersResponse] = await Promise.all([
+          fetchSchools(token), fetchTrips(token), fetchShifts(token), fetchPassengerTypes(token), fetchPassengers(token)
         ]);
         if (!isMounted) return;
         setSchools(Array.isArray(schoolsResponse) ? schoolsResponse : []);
         const nextTrips = extractCollection<TripItem>(tripsResponse);
         setTrips(nextTrips);
         setShifts(Array.isArray(shiftsResponse) ? shiftsResponse : []);
+        setPassengerTypes(Array.isArray(passengerTypesResponse) ? passengerTypesResponse : []);
         const normalized = normalizePassengers(passengersResponse, {
           schools: Array.isArray(schoolsResponse) ? schoolsResponse : [],
           trips: nextTrips,
@@ -320,7 +326,7 @@ export function Passengers() {
       } catch (err) {
         if (!isMounted) return;
         persist(readStoredPassengers());
-        setError(err instanceof Error ? err.message : "No se pudieron cargar escuelas/salidas/turnos/pasajeros.");
+        setError(err instanceof Error ? err.message : "No se pudieron cargar escuelas/salidas/turnos/tipos de pasajero/pasajeros.");
       }
     };
     loadOptions();
@@ -329,6 +335,7 @@ export function Passengers() {
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    console.log("SUBMIT OK");
     if (!isFormReady) return;
 
     const school = schools.find((item) => item.id === Number(form.school_id));
@@ -393,7 +400,7 @@ export function Passengers() {
           shift_id: shift.id,
           grade_id: trip.grade_id ?? trip.grade?.id,
           grade_shift_id: trip.grade_shift_id,
-          passenger_type_id: 1,
+          ...(form.passenger_type_id ? { passenger_type_id: Number(form.passenger_type_id) } : {}),
           passenger_name: nextItem.passengerName,
           passenger_last_name: nextItem.passengerLastName,
           passenger_dni: nextItem.passengerDni,
@@ -437,6 +444,7 @@ export function Passengers() {
       school_id: form.school_id,
       trip_id: form.trip_id,
       shift_id: form.shift_id,
+      passenger_type_id: form.passenger_type_id,
       isAdultCompanion: form.isAdultCompanion,
       hasSpecialPrice: form.hasSpecialPrice,
       specialPrice: form.specialPrice,
@@ -460,6 +468,7 @@ export function Passengers() {
       school_id: String(item.school_id),
       trip_id: String(item.trip_id),
       shift_id: String(item.shift_id),
+      passenger_type_id: "",
       isAdultCompanion: item.isAdultCompanion,
       hasSpecialPrice: item.hasSpecialPrice,
       specialPrice: item.hasSpecialPrice ? String(item.trip_value) : "",
@@ -513,6 +522,7 @@ export function Passengers() {
           <label className="field"><span>Escuela</span><select value={form.school_id} onChange={(e)=>setForm(c=>({...c,school_id:e.target.value,trip_id:""}))} required><option value="">Seleccionar</option>{schools.map((s)=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
           <label className="field"><span>Salida</span><select value={form.trip_id} onChange={(e)=>setForm(c=>({...c,trip_id:e.target.value}))} required disabled={!form.school_id}><option value="">Seleccionar</option>{filteredTrips.map((t)=><option key={t.id} value={t.id}>{t.grade?.name ?? t.group_name ?? t.year}</option>)}</select></label>
           <label className="field"><span>Turno</span><select value={form.shift_id} onChange={(e)=>setForm(c=>({...c,shift_id:e.target.value}))} required><option value="">Seleccionar</option>{shifts.map((s)=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+          <label className="field"><span>Tipo de pasajero (opcional)</span><select value={form.passenger_type_id} onChange={(e)=>setForm(c=>({...c,passenger_type_id:e.target.value}))}><option value="">Sin tipo</option>{passengerTypes.map((type)=><option key={type.id} value={type.id}>{type.name}</option>)}</select></label>
           <label className="field"><span>Cantidad de cuotas</span><input type="number" min="1" max="18" value={form.numInstallments} onChange={(e)=>setForm(c=>({...c,numInstallments:e.target.value}))} required /></label>
         </div>
 

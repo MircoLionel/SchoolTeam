@@ -51,6 +51,8 @@ return [
         'dni' => ['x' => 23.0, 'y' => 52.0, 'w' => 33.0, 'align' => 'L'],
         'periodo' => ['x' => 23.0, 'y' => 55.0, 'w' => 33.0, 'align' => 'L'],
         'nro_cuota' => ['x' => 23.0, 'y' => 60.0, 'w' => 33.0, 'align' => 'L'],
+        'codigo' => ['x' => 23.0, 'y' => 66.0, 'w' => 33.0, 'align' => 'L'],
+        'vencimiento' => ['x' => 23.0, 'y' => 72.5, 'w' => 11.0, 'align' => 'L'],
         // En "VENCIMIENTOS" va solo el precio, desplazado 10px a la derecha y dentro del recuadro.
         'importe' => ['x' => 35.0, 'y' => 72.5, 'w' => 22.0, 'align' => 'L'],
     ],

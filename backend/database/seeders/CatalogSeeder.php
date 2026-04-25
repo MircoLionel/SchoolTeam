@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Grade;
+use App\Models\PassengerType;
 use App\Models\Shift;
 use Illuminate\Database\Seeder;
 
@@ -29,5 +30,10 @@ class CatalogSeeder extends Seeder
         foreach ($shifts as $name) {
             Shift::updateOrCreate(['name' => $name], ['name' => $name]);
         }
+
+        PassengerType::updateOrCreate(
+            ['id' => 1],
+            ['name' => 'Alumno 100%', 'percentage' => 100]
+        );
     }
 }

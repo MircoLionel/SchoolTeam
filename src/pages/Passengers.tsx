@@ -166,9 +166,7 @@ export function Passengers() {
 
   const isFormReady = useMemo(() => {
     const basic = form.passengerName.trim() && form.passengerLastName.trim() && form.passengerDni.trim() &&
-      form.passengerBirthDate && form.school_id && form.trip_id && form.shift_id && form.passenger_type_id &&
-      form.responsibleName.trim() && form.responsibleLastName.trim() && form.dni.trim() && form.birthDate &&
-      form.email.includes("@") && form.phone.trim() && form.address.trim() && form.city.trim();
+      form.passengerBirthDate && form.school_id && form.trip_id && form.shift_id;
     if (!basic) return false;
     if (form.hasSpecialPrice) return Number(form.specialPrice) > 0;
     return true;
@@ -336,13 +334,47 @@ export function Passengers() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     console.log("SUBMIT OK");
-    if (!isFormReady) return;
+
+    const missingFields: string[] = [];
+    if (!form.passengerName.trim()) missingFields.push("Nombre pasajero");
+    if (!form.passengerLastName.trim()) missingFields.push("Apellido pasajero");
+    if (!form.passengerDni.trim()) missingFields.push("DNI pasajero");
+    if (!form.passengerBirthDate) missingFields.push("Fecha nacimiento pasajero");
+    if (!form.school_id) missingFields.push("Escuela");
+    if (!form.trip_id) missingFields.push("Salida");
+    if (!form.shift_id) missingFields.push("Turno");
+    if (form.hasSpecialPrice && Number(form.specialPrice) <= 0) missingFields.push("Precio especial válido");
+
+    console.log("SUBMIT STATE", {
+      isFormReady,
+      school: form.school_id,
+      trip: form.trip_id,
+      shift: form.shift_id,
+      missingFields
+    });
+
+    if (missingFields.length > 0) {
+      console.log("RETURN missingFields", missingFields);
+      setError(`Completá los campos requeridos: ${missingFields.join(", ")}`);
+      return;
+    }
 
     const school = schools.find((item) => item.id === Number(form.school_id));
     const trip = trips.find((item) => item.id === Number(form.trip_id));
     const shift = shifts.find((item) => item.id === Number(form.shift_id));
-    const passengerType = passengerTypes.find((item) => item.id === Number(form.passenger_type_id));
-    if (!school || !trip || !shift) return;
+
+    console.log("SUBMIT RESOLVED REFERENCES", { school, trip, shift });
+
+    if (!school || !trip || !shift) {
+      const missingReferences = [
+        !school ? "Escuela" : null,
+        !trip ? "Salida" : null,
+        !shift ? "Turno" : null
+      ].filter(Boolean);
+      console.log("RETURN missingReferences", missingReferences);
+      setError(`No se pudieron resolver: ${missingReferences.join(", ")}. Reintentá seleccionando nuevamente.`);
+      return;
+    }
 
     const tripLabel = trip.grade?.name ?? trip.group_name ?? String(trip.year);
     const tripValue = computeTripValue(trip.id);
@@ -391,39 +423,46 @@ export function Passengers() {
       persist(items.map((item) => (item.id === editingId ? nextItem : item)));
     } else {
       if (!token) {
+        console.log("RETURN missingToken");
         setError("No hay sesión activa para guardar el pasajero.");
         return;
       }
+      const payload = {
+        school_id: school.id,
+        trip_id: trip.id,
+        shift_id: shift.id,
+        grade_id: trip.grade_id ?? trip.grade?.id,
+        grade_shift_id: trip.grade_shift_id,
+        ...(form.passenger_type_id ? { passenger_type_id: Number(form.passenger_type_id) } : {}),
+        passenger_name: nextItem.passengerName,
+        passenger_last_name: nextItem.passengerLastName,
+        passenger_dni: nextItem.passengerDni,
+        passenger_birth_date: nextItem.passengerBirthDate,
+        is_adult_companion: nextItem.isAdultCompanion,
+        has_special_price: nextItem.hasSpecialPrice,
+        trip_value: nextItem.trip_value,
+        num_installments: nextItem.num_installments,
+        installments: nextItem.installments,
+        responsible: {
+          name: nextItem.responsible.name,
+          last_name: nextItem.responsible.lastName,
+          dni: nextItem.responsible.dni,
+          birth_date: nextItem.responsible.birthDate,
+          email: nextItem.responsible.email,
+          phone: nextItem.responsible.phone,
+          address: nextItem.responsible.address,
+          city: nextItem.responsible.city
+        }
+      };
+
+      console.log("SUBMIT PAYLOAD", payload);
+
       try {
-        await createPassenger(token, {
-          school_id: school.id,
-          trip_id: trip.id,
-          shift_id: shift.id,
-          grade_id: trip.grade_id ?? trip.grade?.id,
-          grade_shift_id: trip.grade_shift_id,
-          ...(form.passenger_type_id ? { passenger_type_id: Number(form.passenger_type_id) } : {}),
-          passenger_name: nextItem.passengerName,
-          passenger_last_name: nextItem.passengerLastName,
-          passenger_dni: nextItem.passengerDni,
-          passenger_birth_date: nextItem.passengerBirthDate,
-          is_adult_companion: nextItem.isAdultCompanion,
-          has_special_price: nextItem.hasSpecialPrice,
-          trip_value: nextItem.trip_value,
-          num_installments: nextItem.num_installments,
-          installments: nextItem.installments,
-          responsible: {
-            name: nextItem.responsible.name,
-            last_name: nextItem.responsible.lastName,
-            dni: nextItem.responsible.dni,
-            birth_date: nextItem.responsible.birthDate,
-            email: nextItem.responsible.email,
-            phone: nextItem.responsible.phone,
-            address: nextItem.responsible.address,
-            city: nextItem.responsible.city
-          }
-        });
+        console.log("CALLING createPassenger", payload);
+        await createPassenger(token, payload);
         await loadPassengers();
       } catch (err) {
+        console.log("RETURN createPassengerError", err);
         setError(err instanceof Error ? err.message : "No se pudo guardar el pasajero.");
         return;
       }
@@ -556,20 +595,20 @@ export function Passengers() {
         </div>
 
         <div className="form-row">
-          <label className="field"><span>Nombre responsable</span><input value={form.responsibleName} onChange={(e)=>setForm(c=>({...c,responsibleName:e.target.value}))} required /></label>
-          <label className="field"><span>Apellido responsable</span><input value={form.responsibleLastName} onChange={(e)=>setForm(c=>({...c,responsibleLastName:e.target.value}))} required /></label>
-          <label className="field"><span>DNI responsable</span><input value={form.dni} onChange={(e)=>setForm(c=>({...c,dni:e.target.value}))} required /></label>
+          <label className="field"><span>Nombre responsable</span><input value={form.responsibleName} onChange={(e)=>setForm(c=>({...c,responsibleName:e.target.value}))} /></label>
+          <label className="field"><span>Apellido responsable</span><input value={form.responsibleLastName} onChange={(e)=>setForm(c=>({...c,responsibleLastName:e.target.value}))} /></label>
+          <label className="field"><span>DNI responsable</span><input value={form.dni} onChange={(e)=>setForm(c=>({...c,dni:e.target.value}))} /></label>
         </div>
 
         <div className="form-row">
-          <label className="field"><span>Fecha nac. responsable</span><input type="date" value={form.birthDate} onChange={(e)=>setForm(c=>({...c,birthDate:e.target.value}))} required /></label>
-          <label className="field"><span>Email</span><input type="email" value={form.email} onChange={(e)=>setForm(c=>({...c,email:e.target.value}))} required /></label>
-          <label className="field"><span>Teléfono</span><input value={form.phone} onChange={(e)=>setForm(c=>({...c,phone:e.target.value}))} required /></label>
+          <label className="field"><span>Fecha nac. responsable</span><input type="date" value={form.birthDate} onChange={(e)=>setForm(c=>({...c,birthDate:e.target.value}))} /></label>
+          <label className="field"><span>Email</span><input type="email" value={form.email} onChange={(e)=>setForm(c=>({...c,email:e.target.value}))} /></label>
+          <label className="field"><span>Teléfono</span><input value={form.phone} onChange={(e)=>setForm(c=>({...c,phone:e.target.value}))} /></label>
         </div>
 
         <div className="form-row">
-          <label className="field"><span>Dirección</span><input value={form.address} onChange={(e)=>setForm(c=>({...c,address:e.target.value}))} required /></label>
-          <label className="field"><span>Ciudad</span><input value={form.city} onChange={(e)=>setForm(c=>({...c,city:e.target.value}))} required /></label>
+          <label className="field"><span>Dirección</span><input value={form.address} onChange={(e)=>setForm(c=>({...c,address:e.target.value}))} /></label>
+          <label className="field"><span>Ciudad</span><input value={form.city} onChange={(e)=>setForm(c=>({...c,city:e.target.value}))} /></label>
         </div>
 
         <div className="form-actions"><button type="submit" className="btn">{editingId ? "Guardar cambios" : "Guardar pasajero"}</button></div>

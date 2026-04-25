@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { extractCollection, fetchTrips, renderCheckbookPdf } from "../services/api";
+import { extractCollection, fetchPassengers, fetchTrips, renderCheckbookPdf } from "../services/api";
 import { useAuth } from "../state/AuthContext";
-import { appendPassengerAudit, getPassengerBalance, readPassengerAudit, readStoredPassengers } from "../state/passengersStorage";
+import { appendPassengerAudit, getPassengerBalance, PassengerItem, readPassengerAudit, saveStoredPassengers } from "../state/passengersStorage";
 
 const currencyFormatter = new Intl.NumberFormat("es-AR", {
   style: "currency",
@@ -24,16 +24,79 @@ export function Accounts() {
   const [printAuditVersion, setPrintAuditVersion] = useState(0);
   const [tripDestinations, setTripDestinations] = useState<Record<number, string>>({});
   const [backendTrips, setBackendTrips] = useState<TripOption[]>([]);
+  const [passengers, setPassengers] = useState<PassengerItem[]>([]);
 
-  const passengers = useMemo(() => readStoredPassengers(), []);
+  const normalizePassengers = (payload: unknown): PassengerItem[] => {
+    const records = extractCollection<Record<string, unknown>>(payload);
+    return records.map((record, index) => {
+      const id = Number(record.id ?? Date.now() + index);
+      const fullName = typeof record.full_name === "string" ? record.full_name.trim() : "";
+      const splitName = fullName ? fullName.split(/\s+/) : [];
+      const trip = record.trip as Record<string, unknown> | undefined;
+      const school = record.school as Record<string, unknown> | undefined;
+      const shift = record.shift as Record<string, unknown> | undefined;
+      const guardian = (record.responsible as Record<string, unknown> | undefined)
+        ?? (record.guardian as Record<string, unknown> | undefined)
+        ?? {};
+      const guardianFullName = typeof guardian.full_name === "string" ? guardian.full_name.trim() : "";
+      const guardianParts = guardianFullName ? guardianFullName.split(/\s+/) : [];
+      const numInstallments = Math.max(1, Number(record.num_installments ?? 8));
+      const installments = Array.isArray(record.installments)
+        ? (record.installments as unknown[]).map((value) =>
+          typeof value === "number"
+            ? value
+            : Number((value as { amount?: unknown } | undefined)?.amount ?? 0)
+        )
+        : Array.from({ length: numInstallments }, () => 0);
+
+      return {
+        id: Number.isFinite(id) ? id : Date.now() + index,
+        passengerName: String(record.passenger_name ?? splitName[0] ?? ""),
+        passengerLastName: String(record.passenger_last_name ?? splitName.slice(1).join(" ")),
+        passengerDni: String(record.passenger_dni ?? record.dni ?? ""),
+        passengerBirthDate: String(record.passenger_birth_date ?? record.birthdate ?? ""),
+        school_id: Number(record.school_id ?? school?.id ?? 0),
+        school_name: String(school?.name ?? ""),
+        trip_id: Number(record.trip_id ?? trip?.id ?? 0),
+        trip_label: String((trip?.grade as { name?: unknown } | undefined)?.name ?? trip?.group_name ?? ""),
+        trip_destination: String(trip?.destination ?? ""),
+        trip_contract_number: String(trip?.contract_number ?? ""),
+        shift_id: Number(record.shift_id ?? shift?.id ?? 0),
+        shift_name: String(shift?.name ?? ""),
+        isAdultCompanion: Boolean(record.is_adult_companion),
+        hasSpecialPrice: Boolean(record.has_special_price),
+        trip_value: Number(record.trip_value ?? (trip?.latest_budget as { base_price_100?: unknown } | undefined)?.base_price_100 ?? 0),
+        paid_amount: Number(record.paid_amount ?? 0),
+        num_installments: numInstallments,
+        installments,
+        responsible: {
+          name: String(guardian.first_name ?? guardian.name ?? guardianParts[0] ?? ""),
+          lastName: String(guardian.last_name ?? guardianParts.slice(1).join(" ")),
+          dni: String(guardian.dni ?? ""),
+          birthDate: String(guardian.birth_date ?? guardian.birthdate ?? ""),
+          email: String(guardian.email ?? ""),
+          phone: String(guardian.phone ?? ""),
+          address: String(guardian.address ?? ""),
+          city: String(guardian.locality ?? guardian.city ?? ""),
+        },
+        created_by: String(record.created_by ?? "Sistema"),
+        created_at: String(record.created_at ?? new Date().toISOString()),
+        last_modified_by: String(record.last_modified_by ?? record.created_by ?? "Sistema"),
+        last_modified_at: String(record.last_modified_at ?? record.created_at ?? new Date().toISOString()),
+        last_modified_action: (record.last_modified_action as PassengerItem["last_modified_action"]) ?? "create",
+      };
+    });
+  };
 
   useEffect(() => {
     if (!token) return;
 
-    fetchTrips(token)
-      .then((payload) => {
-        const records = extractCollection<Record<string, unknown>>(payload);
-        if (!records.length) return;
+    Promise.all([fetchTrips(token), fetchPassengers(token)])
+      .then(([tripsPayload, passengersPayload]) => {
+        const records = extractCollection<Record<string, unknown>>(tripsPayload);
+        const normalizedPassengers = normalizePassengers(passengersPayload);
+        setPassengers(normalizedPassengers);
+        saveStoredPassengers(normalizedPassengers);
 
         const map: Record<number, string> = {};
         const options: TripOption[] = [];
@@ -65,7 +128,7 @@ export function Accounts() {
         setBackendTrips(options.sort((a, b) => a.label.localeCompare(b.label, "es")));
       })
       .catch(() => {
-        // ignore: mantenemos fallback con datos locales
+        setPassengers([]);
       });
   }, [token]);
 

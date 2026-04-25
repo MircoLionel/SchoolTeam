@@ -17,7 +17,7 @@ class PassengerController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Passenger::query()->with(['trip', 'school', 'grade', 'shift', 'guardian', 'passenger_type']);
+        $query = Passenger::query()->with(['trip.latestBudget', 'school', 'grade', 'shift', 'guardian', 'passenger_type']);
 
         if ($request->filled('trip_id')) {
             $query->where('trip_id', $request->integer('trip_id'));
@@ -136,7 +136,7 @@ class PassengerController extends Controller
                 'passengers_count' => $passengerCount,
             ]);
 
-            return response()->json($passenger->load(['trip', 'school', 'grade', 'shift', 'guardian', 'passenger_type']), 201);
+            return response()->json($passenger->load(['trip.latestBudget', 'school', 'grade', 'shift', 'guardian', 'passenger_type']), 201);
         } catch (ValidationException $e) {
             Log::error('Passenger create failed by validation', [
                 'error' => $e->getMessage(),
@@ -156,7 +156,7 @@ class PassengerController extends Controller
 
     public function show(Passenger $passenger)
     {
-        return response()->json($passenger->load(['trip', 'school', 'grade', 'shift', 'guardian', 'passenger_type']));
+        return response()->json($passenger->load(['trip.latestBudget', 'school', 'grade', 'shift', 'guardian', 'passenger_type']));
     }
 
     public function update(Request $request, Passenger $passenger)
@@ -182,7 +182,7 @@ class PassengerController extends Controller
 
         $passenger->update($data);
 
-        return response()->json($passenger->load(['trip', 'school', 'grade', 'shift', 'guardian', 'passenger_type']));
+        return response()->json($passenger->load(['trip.latestBudget', 'school', 'grade', 'shift', 'guardian', 'passenger_type']));
     }
 
     public function destroy(Passenger $passenger)

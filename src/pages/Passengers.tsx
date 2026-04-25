@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { createPassenger, extractCollection, fetchSchools, fetchShifts, fetchTrips } from "../services/api";
+import { createPassenger, extractCollection, fetchPassengers, fetchSchools, fetchShifts, fetchTrips } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 import { appendPassengerAudit, PassengerItem, readStoredPassengers, saveStoredPassengers } from "../state/passengersStorage";
 import { readTripPriceSettings } from "./Trips";
@@ -125,12 +125,17 @@ export function Passengers() {
           fetchSchools(token), fetchTrips(token), fetchShifts(token)
         ]);
         if (!isMounted) return;
-        setSchools(Array.isArray(schoolsResponse) ? schoolsResponse : []);
-        setTrips(extractCollection<TripItem>(tripsResponse));
-        setShifts(Array.isArray(shiftsResponse) ? shiftsResponse : []);
+        const nextSchools = Array.isArray(schoolsResponse) ? schoolsResponse : [];
+        const nextTrips = extractCollection<TripItem>(tripsResponse);
+        const nextShifts = Array.isArray(shiftsResponse) ? shiftsResponse : [];
+        setSchools(nextSchools);
+        setTrips(nextTrips);
+        setShifts(nextShifts);
+        await loadPassengers({ schools: nextSchools, trips: nextTrips, shifts: nextShifts }, token);
         setError(null);
       } catch (err) {
         if (!isMounted) return;
+        persist(readStoredPassengers());
         setError(err instanceof Error ? err.message : "No se pudieron cargar escuelas/salidas/turnos.");
       }
     };
@@ -190,6 +195,96 @@ export function Passengers() {
   const persist = (next: PassengerItem[]) => {
     setItems(next);
     saveStoredPassengers(next);
+  };
+
+  const normalizePassengers = (
+    payload: unknown,
+    refs: { schools: SchoolItem[]; trips: TripItem[]; shifts: ShiftItem[] }
+  ): PassengerItem[] => {
+    const records = extractCollection<Record<string, unknown>>(payload);
+
+    return records.map((record, index) => {
+      const id = Number(record.id ?? Date.now() + index);
+      const tripId = Number(record.trip_id ?? (record.trip as { id?: unknown } | undefined)?.id ?? 0);
+      const schoolId = Number(record.school_id ?? (record.school as { id?: unknown } | undefined)?.id ?? 0);
+      const shiftId = Number(record.shift_id ?? (record.shift as { id?: unknown } | undefined)?.id ?? 0);
+      const trip = refs.trips.find((item) => item.id === tripId);
+      const school = refs.schools.find((item) => item.id === schoolId);
+      const shift = refs.shifts.find((item) => item.id === shiftId);
+      const fullName = typeof record.full_name === "string" ? record.full_name.trim() : "";
+      const splitName = fullName ? fullName.split(/\s+/) : [];
+      const responsible = (record.responsible as Record<string, unknown> | undefined)
+        ?? (record.guardian as Record<string, unknown> | undefined)
+        ?? {};
+      const responsibleFullName = typeof responsible.full_name === "string" ? responsible.full_name.trim() : "";
+      const responsibleParts = responsibleFullName ? responsibleFullName.split(/\s+/) : [];
+
+      const numInstallments = Math.max(1, Number(record.num_installments ?? 8));
+      const installments = Array.isArray(record.installments)
+        ? (record.installments as unknown[]).map((value) =>
+          typeof value === "number"
+            ? value
+            : Number((value as { amount?: unknown } | undefined)?.amount ?? 0)
+        )
+        : Array.from({ length: numInstallments }, () => 0);
+
+      const tripValue = Number(
+        record.trip_value
+        ?? (record.trip as { latest_budget?: { base_price_100?: unknown } } | undefined)?.latest_budget?.base_price_100
+        ?? 0
+      );
+
+      return {
+        id: Number.isFinite(id) ? id : Date.now() + index,
+        passengerName: String(record.passenger_name ?? splitName[0] ?? ""),
+        passengerLastName: String(record.passenger_last_name ?? splitName.slice(1).join(" ")),
+        passengerDni: String(record.passenger_dni ?? record.dni ?? ""),
+        passengerBirthDate: String(record.passenger_birth_date ?? record.birthdate ?? ""),
+        school_id: schoolId,
+        school_name: String((record.school as { name?: unknown } | undefined)?.name ?? school?.name ?? ""),
+        trip_id: tripId,
+        trip_label: String(
+          (record.trip as { grade?: { name?: unknown }; group_name?: unknown } | undefined)?.grade?.name
+          ?? (record.trip as { group_name?: unknown } | undefined)?.group_name
+          ?? trip?.grade?.name
+          ?? trip?.group_name
+          ?? ""
+        ),
+        trip_destination: String((record.trip as { destination?: unknown } | undefined)?.destination ?? trip?.destination ?? ""),
+        trip_contract_number: String((record.trip as { contract_number?: unknown } | undefined)?.contract_number ?? trip?.contract_number ?? ""),
+        shift_id: shiftId,
+        shift_name: String((record.shift as { name?: unknown } | undefined)?.name ?? shift?.name ?? ""),
+        isAdultCompanion: Boolean(record.is_adult_companion),
+        hasSpecialPrice: Boolean(record.has_special_price),
+        trip_value: tripValue,
+        paid_amount: Number(record.paid_amount ?? 0),
+        num_installments: numInstallments,
+        installments,
+        responsible: {
+          name: String(responsible.first_name ?? responsible.name ?? responsibleParts[0] ?? ""),
+          lastName: String(responsible.last_name ?? responsibleParts.slice(1).join(" ")),
+          dni: String(responsible.dni ?? ""),
+          birthDate: String(responsible.birth_date ?? responsible.birthdate ?? ""),
+          email: String(responsible.email ?? ""),
+          phone: String(responsible.phone ?? ""),
+          address: String(responsible.address ?? ""),
+          city: String(responsible.locality ?? responsible.city ?? "")
+        },
+        created_by: String(record.created_by ?? "Sistema"),
+        created_at: String(record.created_at ?? new Date().toISOString()),
+        last_modified_by: String(record.last_modified_by ?? record.created_by ?? "Sistema"),
+        last_modified_at: String(record.last_modified_at ?? record.created_at ?? new Date().toISOString()),
+        last_modified_action: (record.last_modified_action as PassengerItem["last_modified_action"]) ?? "create",
+      };
+    });
+  };
+
+  const loadPassengers = async (
+    refs: { schools: SchoolItem[]; trips: TripItem[]; shifts: ShiftItem[] },
+    authToken: string
+  ) => {
+    const passengersResponse = await fetchPassengers(authToken);
+    persist(normalizePassengers(passengersResponse, refs));
   };
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -282,7 +377,7 @@ export function Passengers() {
         return;
       }
 
-      persist([nextItem, ...items]);
+      await loadPassengers({ schools, trips, shifts }, token);
     }
 
     setError(null);

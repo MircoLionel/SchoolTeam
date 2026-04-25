@@ -7,7 +7,12 @@ use App\Http\Controllers\Api\InstallmentPlanController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\UserController;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
+
+Log::info('API ROUTES FILE HIT', [
+    'file' => 'routes/api.php',
+]);
 
 Route::post('/auth/login', [AuthController::class, 'login']);
 Route::post('/auth/logout', [AuthController::class, 'logout']);

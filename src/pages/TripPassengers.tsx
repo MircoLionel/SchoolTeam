@@ -1,12 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { deletePassenger, extractCollection, fetchPassengers } from "../services/api";
 import { useAuth } from "../state/AuthContext";
-import {
-  appendPassengerAudit,
-  getPassengerBalance,
-  readStoredPassengers,
-  saveStoredPassengers,
-  updatePassengerById,
-} from "../state/passengersStorage";
+import { getPassengerBalance, PassengerItem } from "../state/passengersStorage";
 
 // Archivo saneado: exportación exclusiva CSV (sin bloques HTML/XLS heredados).
 const currencyFormatter = new Intl.NumberFormat("es-AR", {
@@ -17,19 +12,107 @@ const currencyFormatter = new Intl.NumberFormat("es-AR", {
 
 const toCsvCell = (value: unknown): string => `"${String(value).replaceAll('"', '""')}"`;
 
+function normalizePassengers(payload: unknown): PassengerItem[] {
+  const records = extractCollection<Record<string, unknown>>(payload);
+
+  return records.map((record, index) => {
+    const id = Number(record.id ?? Date.now() + index);
+    const tripId = Number(record.trip_id ?? (record.trip as { id?: unknown } | undefined)?.id ?? 0);
+    const schoolId = Number(record.school_id ?? (record.school as { id?: unknown } | undefined)?.id ?? 0);
+    const shiftId = Number(record.shift_id ?? (record.shift as { id?: unknown } | undefined)?.id ?? 0);
+    const fullName = typeof record.full_name === "string" ? record.full_name.trim() : "";
+    const splitName = fullName ? fullName.split(/\s+/) : [];
+    const responsible = (record.responsible as Record<string, unknown> | undefined)
+      ?? (record.guardian as Record<string, unknown> | undefined)
+      ?? {};
+
+    const numInstallments = Math.max(1, Number(record.num_installments ?? 8));
+    const installments = Array.isArray(record.installments)
+      ? (record.installments as unknown[]).map((value) =>
+        typeof value === "number"
+          ? value
+          : Number((value as { amount?: unknown } | undefined)?.amount ?? 0)
+      )
+      : Array.from({ length: numInstallments }, () => 0);
+
+    const tripValue = Number(
+      record.trip_value
+      ?? (record.trip as { latest_budget?: { price_per_passenger?: unknown } } | undefined)?.latest_budget?.price_per_passenger
+      ?? (record.trip as { latest_budget?: { base_price_100?: unknown } } | undefined)?.latest_budget?.base_price_100
+      ?? 0
+    );
+
+    return {
+      id: Number.isFinite(id) ? id : Date.now() + index,
+      passengerName: String(record.passenger_name ?? splitName[0] ?? ""),
+      passengerLastName: String(record.passenger_last_name ?? splitName.slice(1).join(" ")),
+      passengerDni: String(record.passenger_dni ?? record.dni ?? ""),
+      passengerBirthDate: String(record.passenger_birth_date ?? record.birthdate ?? ""),
+      school_id: schoolId,
+      school_name: String((record.school as { name?: unknown } | undefined)?.name ?? ""),
+      trip_id: tripId,
+      trip_label: String((record.trip as { group_name?: unknown } | undefined)?.group_name ?? ""),
+      trip_destination: String((record.trip as { destination?: unknown } | undefined)?.destination ?? ""),
+      trip_contract_number: String((record.trip as { contract_number?: unknown } | undefined)?.contract_number ?? ""),
+      shift_id: shiftId,
+      shift_name: String((record.shift as { name?: unknown } | undefined)?.name ?? ""),
+      isAdultCompanion: Boolean(record.is_adult_companion),
+      hasSpecialPrice: Boolean(record.has_special_price),
+      trip_value: Number.isFinite(tripValue) ? tripValue : 0,
+      paid_amount: Number(record.paid_amount ?? 0),
+      num_installments: numInstallments,
+      installments,
+      responsible: {
+        name: String(responsible.name ?? ""),
+        lastName: String(responsible.last_name ?? responsible.lastName ?? ""),
+        dni: String(responsible.dni ?? ""),
+        birthDate: String(responsible.birth_date ?? responsible.birthDate ?? ""),
+        email: String(responsible.email ?? ""),
+        phone: String(responsible.phone ?? ""),
+        address: String(responsible.address ?? ""),
+        city: String(responsible.city ?? "")
+      },
+      created_by: String(record.created_by ?? "Sistema"),
+      created_at: String(record.created_at ?? new Date().toISOString()),
+      last_modified_by: String(record.last_modified_by ?? record.created_by ?? "Sistema"),
+      last_modified_at: String(record.last_modified_at ?? record.created_at ?? new Date().toISOString()),
+      last_modified_action: "update"
+    };
+  });
+}
+
 export function TripPassengers() {
-  const { user } = useAuth();
+  const { token } = useAuth();
   const params = new URLSearchParams(window.location.search);
   const tripId = Number(params.get("tripId") ?? "0");
-  const [version, setVersion] = useState(0);
+  const [items, setItems] = useState<PassengerItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selectedShift, setSelectedShift] = useState("all");
   const [sortBy, setSortBy] = useState<"name" | "shift">("name");
 
-  const passengers = useMemo(() => {
-    const all = readStoredPassengers();
-    return all.filter((item) => item.trip_id === tripId);
-  }, [tripId, version]);
+  const loadPassengers = async () => {
+    if (!token) return;
+    setIsLoading(true);
+    try {
+      const response = await fetchPassengers(token);
+      const normalized = normalizePassengers(response);
+      setItems(normalized.filter((item) => item.trip_id === tripId));
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudieron cargar los pasajeros.");
+      setItems([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPassengers();
+  }, [token, tripId]);
+
+  const passengers = items;
 
   const shiftOptions = useMemo(
     () => Array.from(new Set(passengers.map((passenger) => passenger.shift_name))).sort((a, b) => a.localeCompare(b, "es")),
@@ -113,35 +196,9 @@ export function TripPassengers() {
     URL.revokeObjectURL(url);
   };
 
-  const updatePrice = (passengerId: number, value: string) => {
-    const parsed = Number(value);
-    if (!Number.isFinite(parsed) || parsed <= 0) return;
-    const updated = updatePassengerById(passengerId, (item) => ({
-      ...item,
-      trip_value: parsed,
-      last_modified_by: user?.name ?? "Sistema",
-      last_modified_at: new Date().toISOString(),
-      last_modified_action: "price_update"
-    }));
-    const updatedPassenger = updated.find((item) => item.id === passengerId);
-    if (updatedPassenger) {
-      appendPassengerAudit({
-        id: Date.now(),
-        passengerId,
-        passengerLabel: `${updatedPassenger.passengerName} ${updatedPassenger.passengerLastName}`,
-        action: "price_update",
-        actorName: user?.name ?? "Sistema",
-        actorRole: user?.role ?? "UNKNOWN",
-        createdAt: new Date().toISOString(),
-        detail: `Cambio de precio de viaje a ${currencyFormatter.format(parsed)}`
-      });
-    }
-    setVersion((current) => current + 1);
-  };
-
-  const deletePassenger = (passengerId: number) => {
+  const handleDeletePassenger = async (passengerId: number) => {
     const target = passengers.find((item) => item.id === passengerId);
-    if (!target) return;
+    if (!target || !token) return;
 
     const confirmed = window.confirm(
       `¿Eliminar a ${target.passengerName} ${target.passengerLastName}? Esta acción no se puede deshacer.`
@@ -149,21 +206,12 @@ export function TripPassengers() {
 
     if (!confirmed) return;
 
-    const next = readStoredPassengers().filter((item) => item.id !== passengerId);
-    saveStoredPassengers(next);
-
-    appendPassengerAudit({
-      id: Date.now(),
-      passengerId,
-      passengerLabel: `${target.passengerName} ${target.passengerLastName}`,
-      action: "delete",
-      actorName: user?.name ?? "Sistema",
-      actorRole: user?.role ?? "UNKNOWN",
-      createdAt: new Date().toISOString(),
-      detail: "Eliminó pasajero desde vista de salida"
-    });
-
-    setVersion((current) => current + 1);
+    try {
+      await deletePassenger(token, passengerId);
+      await loadPassengers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo eliminar el pasajero.");
+    }
   };
 
   return (
@@ -171,7 +219,7 @@ export function TripPassengers() {
       <header className="page-header">
         <div>
           <h1>Pasajeros de la salida #{tripId}</h1>
-          <p>Podés filtrar por nombre/turno, ordenar por turno, editar precio y eliminar pasajero.</p>
+          <p>Listado sincronizado con backend. Podés filtrar por nombre/turno y ordenar por turno.</p>
         </div>
         <button type="button" className="btn" onClick={exportCsv}>Exportar CSV</button>
       </header>
@@ -203,6 +251,8 @@ export function TripPassengers() {
         </label>
       </div>
 
+      {error ? <p className="error-banner">{error}</p> : null}
+
       <div className="card placeholder-table">
         <div className="table-row header trip-passengers-row-extended">
           <span>Nombre</span>
@@ -216,7 +266,7 @@ export function TripPassengers() {
           <span>Acciones</span>
         </div>
 
-        {visiblePassengers.length === 0 ? (
+        {!isLoading && visiblePassengers.length === 0 ? (
           <div className="table-row trip-passengers-row-extended">
             <span>No hay pasajeros para el filtro seleccionado.</span><span>-</span><span>-</span><span>-</span>
             <span>-</span><span>-</span><span>-</span><span>-</span><span>-</span>
@@ -231,14 +281,12 @@ export function TripPassengers() {
               <span>{passenger.passengerLastName}</span>
               <span>{passenger.passengerDni}</span>
               <span>{new Date(`${passenger.passengerBirthDate}T00:00:00`).toLocaleDateString("es-AR")}</span>
-              <span>
-                <input type="number" min="1" defaultValue={passenger.trip_value} onBlur={(event) => updatePrice(passenger.id, event.target.value)} />
-              </span>
+              <span>{currencyFormatter.format(passenger.trip_value)}</span>
               <span>{passenger.num_installments}</span>
               <span>{currencyFormatter.format(remaining)}</span>
               <span>{passenger.shift_name}</span>
               <span>
-                <button type="button" className="btn btn-danger" onClick={() => deletePassenger(passenger.id)}>
+                <button type="button" className="btn btn-danger" onClick={() => handleDeletePassenger(passenger.id)}>
                   Eliminar
                 </button>
               </span>

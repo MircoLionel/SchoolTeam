@@ -13,14 +13,8 @@ class PdfService
      */
     public function renderCheckbookPdf(array $payload): string
     {
-        $header = $payload['header'] ?? [];
-
-        if (($payload['code'] ?? null) !== null) {
-            $header['codigo'] = (string) $payload['code'];
-        }
-
         return $this->checkbookPdfService->generate(
-            $header,
+            $payload['header'] ?? [],
             $payload['installments'] ?? [],
             ($payload['code'] ?? 'chequera') . '.pdf'
         );

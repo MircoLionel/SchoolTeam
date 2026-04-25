@@ -273,7 +273,7 @@ export function Accounts() {
           body: parsedBody
         });
 
-        message = parsedBody?.error ?? parsedBody?.message ?? rawBody || message;
+        message = parsedBody?.error ?? parsedBody?.message ?? (rawBody || message);
         throw new Error(message);
       }
 

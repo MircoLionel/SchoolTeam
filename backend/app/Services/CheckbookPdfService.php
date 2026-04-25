@@ -50,6 +50,7 @@ class CheckbookPdfService
         $pdf->SetAutoPageBreak(false);
         $templateSourcePath = $templatePath;
         $templateId = null;
+        $templateSize = null;
 
         if (! $this->isImageTemplate($templatePath)) {
             $sourcePage = (int) config('checkbook_pdf.source_page', 1);
@@ -60,16 +61,21 @@ class CheckbookPdfService
             }
 
             $templateId = $pdf->importPage($sourcePage);
+            $templateSize = $pdf->getTemplateSize($templateId);
         }
 
         // Regla solicitada: 1-3 cuotas => 1 página, 4-6 => 2, etc.
         foreach (array_chunk($installments, 3) as $installmentsPageGroup) {
-            $pdf->addPage();
-            if ($templateId !== null) {
-                $pdf->useTemplate($templateId, 0, 0);
+            if ($templateId !== null && is_array($templateSize)) {
+                $orientation = ($templateSize['width'] ?? 0) > ($templateSize['height'] ?? 0) ? 'L' : 'P';
+                $pdf->addPage($orientation, [(float) ($templateSize['width'] ?? 210), (float) ($templateSize['height'] ?? 297)]);
+                $pdf->useTemplate($templateId, 0, 0, (float) ($templateSize['width'] ?? 210), (float) ($templateSize['height'] ?? 297), true);
             } else {
+                $pdf->addPage('P', 'A4');
                 $pdf->Image($templatePath, 0, 0, 210, 297);
             }
+
+            $this->printDebugMarker($pdf);
 
             foreach ($couponPositions as $couponIndex => $couponPosition) {
                 $installment = $installmentsPageGroup[$couponIndex] ?? null;
@@ -288,6 +294,8 @@ class CheckbookPdfService
             'dni' => (string) ($header['dni'] ?? ''),
             'periodo' => (string) ($header['periodo'] ?? ''),
             'nro_cuota' => (string) ($installment['nro_cuota'] ?? $installment['numero'] ?? ''),
+            'vencimiento' => (string) ($installment['vencimiento'] ?? $installment['due_date'] ?? '-'),
+            'codigo' => (string) ($header['codigo'] ?? ''),
             // En el cuadro de vencimiento va solo el importe.
             'importe' => $this->formatAmount($installment['importe'] ?? $installment['monto'] ?? 0),
         ];
@@ -310,6 +318,18 @@ class CheckbookPdfService
             $pdf->SetXY($x, $y);
             $pdf->Cell($width, $height, $this->sanitize($this->truncate($text)), 0, 0, $align);
         }
+    }
+
+
+    private function printDebugMarker(Fpdi $pdf): void
+    {
+        $pdf->SetFont('Helvetica', 'B', 22);
+        $pdf->SetTextColor(220, 0, 0);
+        $pdf->SetXY(10, 10);
+        $pdf->Cell(0, 10, $this->sanitize('TEST CHEQUERA'), 0, 1, 'L');
+
+        // Restaurar color por defecto para el resto de campos.
+        $pdf->SetTextColor(0, 0, 0);
     }
 
     private function formatAmount(mixed $amount): string

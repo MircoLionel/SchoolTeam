@@ -335,6 +335,7 @@ export function Passengers() {
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    console.log("SUBMIT OK");
     if (!isFormReady) return;
 
     const school = schools.find((item) => item.id === Number(form.school_id));
@@ -400,7 +401,7 @@ export function Passengers() {
           shift_id: shift.id,
           grade_id: trip.grade_id ?? trip.grade?.id,
           grade_shift_id: trip.grade_shift_id,
-          passenger_type_id: passengerType?.id,
+          ...(form.passenger_type_id ? { passenger_type_id: Number(form.passenger_type_id) } : {}),
           passenger_name: nextItem.passengerName,
           passenger_last_name: nextItem.passengerLastName,
           passenger_dni: nextItem.passengerDni,

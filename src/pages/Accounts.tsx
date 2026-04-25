@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { extractCollection, fetchPassengers, fetchTrips, renderCheckbookPdf } from "../services/api";
+import { extractCollection, fetchPassengers, fetchTrips } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 import { appendPassengerAudit, getPassengerBalance, PassengerItem, readPassengerAudit } from "../state/passengersStorage";
 
@@ -9,6 +9,7 @@ const currencyFormatter = new Intl.NumberFormat("es-AR", {
   currency: "ARS",
   maximumFractionDigits: 0
 });
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api";
 
 export function Accounts() {
   const navigate = useNavigate();
@@ -217,8 +218,6 @@ export function Accounts() {
         .replace(/^-+|-+$/g, "")
         .toLowerCase();
 
-      const fileName = `cheq-${(printableName || `pax-${row.id}`).slice(0, 45)}.pdf`;
-
       const payload = {
         code: `cheq-${(printableName || `pax-${row.id}`).slice(0, 45)}`,
         header: {
@@ -236,33 +235,52 @@ export function Accounts() {
         }))
       };
 
-      const pdfBlob = await renderCheckbookPdf(token, payload);
+      const response = await fetch(`${API_URL}/checkbooks/render-pdf`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload),
+        redirect: "manual"
+      });
+      const contentType = response.headers.get("content-type") ?? "unknown";
+      console.log("[Accounts] render-pdf response", {
+        status: response.status,
+        contentType,
+        redirected: response.redirected
+      });
+
+      if ((response.status >= 300 && response.status < 400) || response.redirected) {
+        throw new Error("El endpoint render-pdf devolvió un redirect. Se canceló la apertura para evitar página en blanco.");
+      }
+
+      if (!response.ok) {
+        let message = "No se pudo generar la chequera.";
+        try {
+          const data = (await response.json()) as { message?: string; error?: string };
+          message = data.error ?? data.message ?? message;
+        } catch (parseError) {
+          // ignore parse errors
+        }
+        throw new Error(message);
+      }
+
+      const pdfBlob = await response.blob();
+      console.log("[Accounts] render-pdf blob", {
+        status: response.status,
+        contentType,
+        size: pdfBlob.size
+      });
       const pdfUrl = URL.createObjectURL(pdfBlob);
 
-      const popup = window.open("", "_blank");
+      const popup = window.open(pdfUrl, "_blank");
       if (!popup) {
         window.alert("El navegador bloqueó la ventana de impresión.");
         URL.revokeObjectURL(pdfUrl);
         return;
       }
-
-      popup.document.write(`<!doctype html><html><head><title>${fileName}</title></head><body style="margin:0"><iframe id="pdfFrame" src="${pdfUrl}" style="border:0;width:100vw;height:100vh"></iframe></body></html>`);
-      popup.document.close();
-
-      const iframe = popup.document.getElementById("pdfFrame") as HTMLIFrameElement | null;
-      iframe?.addEventListener("load", () => {
-        popup.focus();
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-      });
-
-      const downloadLink = document.createElement("a");
-      downloadLink.href = pdfUrl;
-      downloadLink.download = fileName;
-      downloadLink.style.display = "none";
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      document.body.removeChild(downloadLink);
+      popup.focus();
 
       appendPassengerAudit({
         id: Date.now(),

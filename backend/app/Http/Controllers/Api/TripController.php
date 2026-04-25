@@ -16,7 +16,9 @@ class TripController extends Controller
             $query->where('school_id', $request->integer('school_id'));
         }
 
-        return response()->json($query->orderByDesc('year')->get());
+        return response()->json(
+            $query->orderByDesc('year')->get()->map(fn (Trip $trip) => $this->serializeTrip($trip))->all()
+        );
     }
 
     public function store(Request $request)
@@ -33,12 +35,16 @@ class TripController extends Controller
 
         $trip = Trip::create($data);
 
-        return response()->json($trip->load(['school', 'grade', 'shifts', 'latestBudget']), 201);
+        $trip->load(['school', 'grade', 'shifts', 'latestBudget']);
+
+        return response()->json($this->serializeTrip($trip), 201);
     }
 
     public function show(Trip $trip)
     {
-        return response()->json($trip->load(['school', 'grade', 'shifts', 'latestBudget']));
+        $trip->load(['school', 'grade', 'shifts', 'latestBudget']);
+
+        return response()->json($this->serializeTrip($trip));
     }
 
     public function update(Request $request, Trip $trip)
@@ -55,7 +61,9 @@ class TripController extends Controller
 
         $trip->update($data);
 
-        return response()->json($trip->load(['school', 'grade', 'shifts', 'latestBudget']));
+        $trip->load(['school', 'grade', 'shifts', 'latestBudget']);
+
+        return response()->json($this->serializeTrip($trip));
     }
 
     public function destroy(Trip $trip)
@@ -63,5 +71,18 @@ class TripController extends Controller
         $trip->delete();
 
         return response()->json(['message' => 'Eliminado']);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function serializeTrip(Trip $trip): array
+    {
+        $price = (float) ($trip->latestBudget?->base_price_100 ?? 0);
+
+        return array_merge($trip->toArray(), [
+            'trip_value' => $price,
+            'price_per_passenger' => $price,
+        ]);
     }
 }

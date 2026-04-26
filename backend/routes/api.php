@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuditController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CouponController;
+use App\Http\Controllers\Api\CashMovementController;
 use App\Http\Controllers\Api\InstallmentPlanController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ReportController;
@@ -43,9 +44,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/coupons/{coupon}/collect', [CouponController::class, 'collect']);
 
     Route::post('/payments/non-cash', [PaymentController::class, 'storeNonCash']);
+    Route::post('/payments/coupon-collect', [PaymentController::class, 'storeCouponCollect']);
     Route::get('/payments/{payment}/receipt', [PaymentController::class, 'receipt']);
 
     Route::get('/accounts/{passenger}', [ReportController::class, 'passengerAccount']);
+
+    Route::get('/cash-movements', [CashMovementController::class, 'index']);
+    Route::post('/cash-movements/expense', [CashMovementController::class, 'storeExpense']);
+    Route::delete('/cash-movements/{cashMovement}', [CashMovementController::class, 'destroy']);
+    Route::delete('/cash-movements', [CashMovementController::class, 'reset']);
 
     Route::get('/reports/passengers', [ReportController::class, 'passengers']);
     Route::get('/reports/passenger-status', [ReportController::class, 'passengerStatus']);

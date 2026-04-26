@@ -364,7 +364,7 @@ export interface CashMovementRecord {
 
 export async function registerCouponCollectPayment(
   token: string,
-  payload: { passenger_id: number; trip_id: number; amount: number; reason?: string; detail?: string }
+  payload: { passenger_id: number; trip_id?: number; amount: number; reason?: string; detail?: string; payment_method?: string; collected_by?: number }
 ) {
   return apiRequest<{ payment: { id: number } }>("/payments/coupon-collect", {
     method: "POST",

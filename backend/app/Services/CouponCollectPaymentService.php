@@ -8,6 +8,7 @@ use App\Models\AccountMovement;
 use App\Models\CashCategory;
 use App\Models\CashMovement;
 use App\Models\Payment;
+use App\Models\Passenger;
 use App\Models\PaymentDetail;
 use Illuminate\Support\Facades\DB;
 
@@ -16,9 +17,12 @@ class CouponCollectPaymentService
     public function register(array $payload, int $userId): Payment
     {
         return DB::transaction(function () use ($payload, $userId) {
+            $passenger = Passenger::query()->findOrFail((int) $payload['passenger_id']);
+            $tripId = (int) ($payload['trip_id'] ?? $passenger->trip_id);
+
             $payment = Payment::create([
-                'passenger_id' => $payload['passenger_id'],
-                'trip_id' => $payload['trip_id'],
+                'passenger_id' => $passenger->id,
+                'trip_id' => $tripId,
                 'date' => $payload['date'] ?? now()->toDateString(),
                 'method' => PaymentMethod::CASH->value,
                 'amount_total' => $payload['amount'],
@@ -34,8 +38,8 @@ class CouponCollectPaymentService
             ]);
 
             AccountMovement::create([
-                'passenger_id' => $payload['passenger_id'],
-                'trip_id' => $payload['trip_id'],
+                'passenger_id' => $passenger->id,
+                'trip_id' => $tripId,
                 'date' => $payment->date,
                 'type' => AccountMovementType::CUOTA->value,
                 'amount' => $payload['amount'],

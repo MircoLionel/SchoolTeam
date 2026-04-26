@@ -15,7 +15,9 @@ class CouponCollectPaymentRequest extends FormRequest
     {
         return [
             'passenger_id' => ['required', 'integer', 'exists:passengers,id'],
-            'trip_id' => ['required', 'integer', 'exists:trips,id'],
+            'trip_id' => ['nullable', 'integer', 'exists:trips,id'],
+            'payment_method' => ['nullable', 'string'],
+            'collected_by' => ['nullable', 'integer'],
             'amount' => ['required', 'numeric', 'min:0.01'],
             'reason' => ['nullable', 'string'],
             'detail' => ['nullable', 'string'],

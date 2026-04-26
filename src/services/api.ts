@@ -349,6 +349,58 @@ export async function deleteSchoolGradeShift(token: string, id: number) {
 }
 
 
+
+export interface CashMovementRecord {
+  id: number;
+  date: string;
+  type: "INCOME" | "EXPENSE" | string;
+  amount: number;
+  method?: string | null;
+  detail?: string | null;
+  category_id?: number;
+  category_name?: string | null;
+  created_at?: string;
+}
+
+export async function registerCouponCollectPayment(
+  token: string,
+  payload: { passenger_id: number; trip_id?: number; amount: number; reason?: string; detail?: string; payment_method?: string; collected_by?: number }
+) {
+  return apiRequest<{ payment: { id: number } }>("/payments/coupon-collect", {
+    method: "POST",
+    token,
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function fetchCashMovements(token: string) {
+  return apiRequest<CashMovementRecord[]>("/cash-movements", { token });
+}
+
+export async function createCashExpense(
+  token: string,
+  payload: { amount: number; description?: string; category_name?: string }
+) {
+  return apiRequest<{ movement: CashMovementRecord }>("/cash-movements/expense", {
+    method: "POST",
+    token,
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function deleteCashExpense(token: string, movementId: number) {
+  return apiRequest<{ message: string }>(`/cash-movements/${movementId}`, {
+    method: "DELETE",
+    token,
+  });
+}
+
+export async function resetCashboxRecords(token: string) {
+  return apiRequest<{ message: string }>("/cash-movements", {
+    method: "DELETE",
+    token,
+  });
+}
 export interface CheckbookPdfInstallmentPayload {
   nro_cuota: string;
   importe: number;

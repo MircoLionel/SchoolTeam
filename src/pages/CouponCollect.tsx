@@ -1,9 +1,9 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { extractCollection, fetchPassengers, fetchSchools, registerCouponCollectPayment } from "../services/api";
 import {
   appendPassengerAudit,
-  appendCashIncome,
   getPassengerBalance,
-  readStoredPassengers,
+  PassengerItem,
   saveStoredPassengers
 } from "../state/passengersStorage";
 import { useAuth } from "../state/AuthContext";
@@ -14,23 +14,77 @@ const currencyFormatter = new Intl.NumberFormat("es-AR", {
   maximumFractionDigits: 0
 });
 
+interface SchoolFilterItem {
+  id: number;
+  name: string;
+}
+
+function normalizePassengers(payload: unknown): PassengerItem[] {
+  const records = extractCollection<Record<string, unknown>>(payload);
+  return records.map((record, index) => ({
+    id: Number(record.id ?? Date.now() + index),
+    passengerName: String(record.passenger_name ?? (String(record.full_name ?? "").split(/\s+/)[0] ?? "")),
+    passengerLastName: String(record.passenger_last_name ?? String(record.full_name ?? "").split(/\s+/).slice(1).join(" ")),
+    passengerDni: String(record.passenger_dni ?? record.dni ?? ""),
+    passengerBirthDate: String(record.passenger_birth_date ?? record.birthdate ?? ""),
+    school_id: Number(record.school_id ?? 0),
+    school_name: String((record.school as Record<string, unknown> | undefined)?.name ?? ""),
+    trip_id: Number(record.trip_id ?? 0),
+    trip_label: String((record.trip as Record<string, unknown> | undefined)?.group_name ?? ""),
+    shift_id: Number(record.shift_id ?? 0),
+    shift_name: String((record.shift as Record<string, unknown> | undefined)?.name ?? ""),
+    isAdultCompanion: false,
+    hasSpecialPrice: false,
+    trip_value: Number(record.trip_value ?? 0),
+    paid_amount: Number(record.paid_amount ?? 0),
+    num_installments: Number(record.num_installments ?? 1),
+    installments: Array.isArray(record.installments) ? (record.installments as number[]) : [],
+    responsible: { name: "", lastName: "", dni: "", birthDate: "", email: "", phone: "", address: "", city: "" },
+  }));
+}
+
 export function CouponCollect() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [query, setQuery] = useState("");
+  const [selectedSchoolId, setSelectedSchoolId] = useState<string>("all");
+  const [schools, setSchools] = useState<SchoolFilterItem[]>([]);
   const [selectedPassengerId, setSelectedPassengerId] = useState("");
   const [amount, setAmount] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [passengers, setPassengers] = useState<PassengerItem[]>([]);
 
-  const [passengers, setPassengers] = useState(() => readStoredPassengers());
+  const loadPassengers = async () => {
+    if (!token) return;
+    const payload = await fetchPassengers(token);
+    const records = normalizePassengers(payload);
+    setPassengers(records);
+    saveStoredPassengers(records);
+  };
+
+  useEffect(() => {
+    if (!token) return;
+    Promise.all([loadPassengers(), fetchSchools(token)])
+      .then(([, schoolsPayload]) => {
+        setSchools((schoolsPayload ?? []).map((school) => ({ id: school.id, name: school.name })));
+      })
+      .catch(() => {
+        setPassengers([]);
+        setSchools([]);
+      });
+  }, [token]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return passengers;
     return passengers.filter((item) => {
+      const schoolMatch = selectedSchoolId === "all" || item.school_id === Number(selectedSchoolId);
+      if (!schoolMatch) return false;
+      if (!q) return true;
       const fullName = `${item.passengerName} ${item.passengerLastName}`.toLowerCase();
       return fullName.includes(q) || item.passengerDni.includes(q);
     });
-  }, [passengers, query]);
+  }, [passengers, query, selectedSchoolId]);
 
   const selectedPassenger = useMemo(
     () => passengers.find((item) => item.id === Number(selectedPassengerId)),
@@ -39,54 +93,58 @@ export function CouponCollect() {
   const selectedBalance = selectedPassenger ? getPassengerBalance(selectedPassenger) : null;
   const remainingAmount = selectedPassenger ? Math.max(0, selectedPassenger.trip_value - selectedPassenger.paid_amount) : 0;
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!token || isSubmitting) return;
+
+    setMessage(null);
+    setErrorMessage(null);
+
     const payment = Number(amount);
     const passengerId = Number(selectedPassengerId);
-    if (!payment || payment <= 0 || !passengerId) return;
+    if (!payment || payment <= 0 || !passengerId) {
+      setErrorMessage("Seleccioná un pasajero y un monto válido.");
+      return;
+    }
 
-    const current = readStoredPassengers();
-    const selected = current.find((item) => item.id === passengerId);
-    if (!selected) return;
+    const selected = passengers.find((item) => item.id === passengerId);
+    if (!selected) {
+      setErrorMessage("No se encontró el pasajero seleccionado.");
+      return;
+    }
 
-    const nextPaid = selected.paid_amount + payment;
+    try {
+      setIsSubmitting(true);
 
-    const nextPassengers = current.map((item) =>
-      item.id === passengerId
-        ? {
-            ...item,
-            paid_amount: nextPaid,
-            last_modified_by: user?.name ?? "Sistema",
-            last_modified_at: new Date().toISOString(),
-            last_modified_action: "payment" as const
-          }
-        : item
-    );
+      await registerCouponCollectPayment(token, {
+        passenger_id: passengerId,
+        trip_id: selected.trip_id > 0 ? selected.trip_id : undefined,
+        amount: payment,
+        payment_method: "CASH",
+        collected_by: user?.id,
+        detail: `Cobro de cupón de ${selected.passengerName} ${selected.passengerLastName}`
+      });
 
-    saveStoredPassengers(nextPassengers);
-    setPassengers(nextPassengers);
+      appendPassengerAudit({
+        id: Date.now() + 1,
+        passengerId,
+        passengerLabel: `${selected.passengerName} ${selected.passengerLastName}`,
+        action: "payment",
+        actorName: user?.name ?? "Sistema",
+        actorRole: user?.role ?? "UNKNOWN",
+        createdAt: new Date().toISOString(),
+        detail: `Cobro de cupón por ${currencyFormatter.format(payment)}`
+      });
 
-    appendCashIncome({
-      id: Date.now(),
-      passengerId,
-      passengerLabel: `${selected.passengerName} ${selected.passengerLastName}`,
-      amount: payment,
-      createdAt: new Date().toISOString(),
-      method: "coupon"
-    });
-    appendPassengerAudit({
-      id: Date.now() + 1,
-      passengerId,
-      passengerLabel: `${selected.passengerName} ${selected.passengerLastName}`,
-      action: "payment",
-      actorName: user?.name ?? "Sistema",
-      actorRole: user?.role ?? "UNKNOWN",
-      createdAt: new Date().toISOString(),
-      detail: `Cobro de cupón por ${currencyFormatter.format(payment)}`
-    });
-
-    setMessage(`Cobro registrado: ${currencyFormatter.format(payment)} para ${selected.passengerName} ${selected.passengerLastName}.`);
-    setAmount("");
+      await loadPassengers();
+      setMessage(`Cobro registrado: ${currencyFormatter.format(payment)} para ${selected.passengerName} ${selected.passengerLastName}.`);
+      setAmount("");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo registrar el cobro.";
+      setErrorMessage(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -94,12 +152,21 @@ export function CouponCollect() {
       <header className="page-header">
         <div>
           <h1>Cobro de cupón</h1>
-          <p>Filtrá por pasajero y registrá el pago para impactar en cuenta y caja.</p>
+          <p>Filtrá por escuela/pasajero y registrá el pago para impactar en cuenta y caja.</p>
         </div>
       </header>
 
       <form className="card form-grid" onSubmit={handleSubmit}>
         <div className="form-row">
+          <label className="field">
+            <span>Escuela</span>
+            <select value={selectedSchoolId} onChange={(event) => setSelectedSchoolId(event.target.value)}>
+              <option value="all">Todas</option>
+              {schools.map((school) => (
+                <option key={school.id} value={school.id}>{school.name}</option>
+              ))}
+            </select>
+          </label>
           <label className="field">
             <span>Buscar pasajero</span>
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nombre, apellido o DNI" />
@@ -122,7 +189,7 @@ export function CouponCollect() {
         </div>
 
         <div className="form-actions">
-          <button type="submit" className="btn">Registrar cobro</button>
+          <button type="submit" className="btn" disabled={isSubmitting}>{isSubmitting ? "Registrando..." : "Registrar cobro"}</button>
         </div>
       </form>
 
@@ -145,7 +212,8 @@ export function CouponCollect() {
         </div>
       ) : null}
 
-      {message ? <p className="badge">{message}</p> : null}
+      {message ? <p className="badge badge-positive">{message}</p> : null}
+      {errorMessage ? <p className="badge badge-negative">{errorMessage}</p> : null}
     </section>
   );
 }

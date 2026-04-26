@@ -1,16 +1,12 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { createCashExpense, deleteCashExpense, fetchCashMovements, resetCashboxRecords, type CashMovementRecord } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 import { Role } from "../types/auth";
 import {
   appendCashboxAudit,
-  appendCashboxExpense,
   readCashboxAudit,
   readCashboxCategories,
-  readCashboxExpenses,
-  readCashIncomes,
-  resetCashIncomes,
   saveCashboxCategories,
-  saveCashboxExpenses,
   type CashboxCategory,
 } from "../state/passengersStorage";
 
@@ -23,13 +19,13 @@ function formatCurrency(value: number) {
 }
 
 export function Cashbox() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const actorName = user?.name ?? "Sistema";
   const isAdmin = user?.role === Role.ADMIN;
 
-  const [reloadKey, setReloadKey] = useState(0);
   const [categories, setCategories] = useState<CashboxCategory[]>(readCashboxCategories);
   const [audit, setAudit] = useState(() => readCashboxAudit().slice(0, 12));
+  const [movements, setMovements] = useState<CashMovementRecord[]>([]);
   const [newCategory, setNewCategory] = useState({ label: "", color: "#175cd3" });
   const [expenseForm, setExpenseForm] = useState({
     categoryId: String(readCashboxCategories()[0]?.id ?? ""),
@@ -37,16 +33,31 @@ export function Cashbox() {
     description: "",
   });
 
-  const incomesFromCoupons = useMemo(() => readCashIncomes().reduce((acc, movement) => acc + movement.amount, 0), [reloadKey]);
-  const expenses = useMemo(() => readCashboxExpenses(), [reloadKey]);
+  const loadMovements = async () => {
+    if (!token) return;
+    const data = await fetchCashMovements(token);
+    setMovements(data);
+  };
+
+  useEffect(() => {
+    loadMovements().catch(() => setMovements([]));
+  }, [token]);
+
+  const incomesFromCoupons = useMemo(
+    () => movements.filter((m) => m.type === "INCOME").reduce((acc, m) => acc + m.amount, 0),
+    [movements]
+  );
+  const expenses = useMemo(() => movements.filter((m) => m.type === "EXPENSE"), [movements]);
 
   const amountsByCategory = useMemo(() => {
     const map = new Map<number, number>();
     expenses.forEach((expense) => {
-      map.set(expense.categoryId, (map.get(expense.categoryId) ?? 0) + expense.amount);
+      const localCategory = categories.find((c) => c.label === (expense.category_name ?? ""));
+      const key = localCategory?.id ?? 0;
+      map.set(key, (map.get(key) ?? 0) + expense.amount);
     });
     return map;
-  }, [expenses]);
+  }, [categories, expenses]);
 
   const categoriesWithAmount = useMemo(
     () => categories.map((category) => ({ ...category, amount: amountsByCategory.get(category.id) ?? 0 })),
@@ -54,8 +65,8 @@ export function Cashbox() {
   );
 
   const totalEgresos = useMemo(
-    () => categoriesWithAmount.reduce((acc, category) => acc + category.amount, 0),
-    [categoriesWithAmount]
+    () => expenses.reduce((acc, expense) => acc + expense.amount, 0),
+    [expenses]
   );
 
   const balance = incomesFromCoupons - totalEgresos;
@@ -88,7 +99,7 @@ export function Cashbox() {
     setAudit(readCashboxAudit().slice(0, 12));
   };
 
-  const onResetCashbox = () => {
+  const onResetCashbox = async () => {
     const password = window.prompt("Ingresá la contraseña para resetear caja:");
     if (password === null) return;
 
@@ -97,10 +108,11 @@ export function Cashbox() {
       return;
     }
 
-    resetCashIncomes();
-    recordAudit("reset_cashbox", "Reseteó ingresos de caja a $0");
-    setReloadKey((current) => current + 1);
-    window.alert("Caja (ingresos) reseteada a $0.");
+    if (!token) return;
+    await resetCashboxRecords(token);
+    recordAudit("reset_cashbox", "Reseteó caja y borró movimientos");
+    await loadMovements();
+    window.alert("Caja reseteada.");
   };
 
   const handleCreateCategory = (event: FormEvent<HTMLFormElement>) => {
@@ -153,8 +165,10 @@ export function Cashbox() {
     recordAudit("update_category", `Editó categoría "${category.label}" -> "${cleanLabel}"`);
   };
 
-  const handleCreateExpense = (event: FormEvent<HTMLFormElement>) => {
+  const handleCreateExpense = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!token) return;
+
     const amount = Number(expenseForm.amount);
     const categoryId = Number(expenseForm.categoryId);
     if (!categoryId || !Number.isFinite(amount) || amount <= 0) {
@@ -168,46 +182,22 @@ export function Cashbox() {
       return;
     }
 
-    appendCashboxExpense({
-      id: Date.now(),
-      categoryId,
+    await createCashExpense(token, {
       amount,
       description: expenseForm.description.trim() || "Sin detalle",
-      createdAt: new Date().toISOString(),
-      createdBy: actorName,
+      category_name: category.label,
     });
 
     setExpenseForm((current) => ({ ...current, amount: "", description: "" }));
     recordAudit("add_expense", `Agregó gasto ${formatCurrency(amount)} en "${category.label}" · ${expenseForm.description.trim() || "Sin detalle"}`);
-    setReloadKey((current) => current + 1);
+    await loadMovements();
   };
 
-  const handleEditExpense = (expenseId: number) => {
-    if (!isAdmin) {
-      window.alert("Solo ADMIN puede editar gastos.");
-      return;
-    }
-
-    const current = expenses.find((item) => item.id === expenseId);
-    if (!current) return;
-
-    const nextDescription = window.prompt("Nueva descripción:", current.description) ?? current.description;
-    const nextAmountRaw = window.prompt("Nuevo importe:", String(current.amount));
-    if (nextAmountRaw === null) return;
-    const nextAmount = Number(nextAmountRaw);
-    if (!Number.isFinite(nextAmount) || nextAmount <= 0) {
-      window.alert("Importe inválido.");
-      return;
-    }
-
-    const next = expenses.map((item) =>
-      item.id === expenseId
-        ? { ...item, description: nextDescription.trim() || "Sin detalle", amount: nextAmount }
-        : item
-    );
-    saveCashboxExpenses(next);
-    recordAudit("edit_expense", `Editó gasto #${expenseId} a ${formatCurrency(nextAmount)} · ${nextDescription.trim() || "Sin detalle"}`);
-    setReloadKey((value) => value + 1);
+  const handleDeleteExpense = async (expenseId: number) => {
+    if (!token) return;
+    await deleteCashExpense(token, expenseId);
+    recordAudit("edit_expense", `Eliminó egreso #${expenseId}`);
+    await loadMovements();
   };
 
   return (
@@ -298,23 +288,6 @@ export function Cashbox() {
       </div>
 
       <div className="card placeholder-table">
-        <div className="table-row header table-row-audit">
-          <span>Auditoría caja</span>
-          <span>Usuario</span>
-          <span>Fecha/Hora</span>
-        </div>
-        {audit.length === 0 ? (
-          <div className="table-row table-row-audit"><span>Sin movimientos</span><span>-</span><span>-</span></div>
-        ) : audit.map((entry) => (
-          <div key={entry.id} className="table-row table-row-audit">
-            <span>{entry.detail}</span>
-            <span>{entry.actorName}</span>
-            <span>{new Date(entry.createdAt).toLocaleString("es-AR")}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="card placeholder-table">
         <div className="table-row header table-row-expenses">
           <span>Gasto</span>
           <span>Categoría</span>
@@ -325,19 +298,16 @@ export function Cashbox() {
           <div className="table-row table-row-expenses">
             <span>Sin gastos registrados</span><span>-</span><span>-</span><span>-</span>
           </div>
-        ) : expenses.slice(0, 20).map((expense) => {
-          const category = categories.find((c) => c.id === expense.categoryId);
-          return (
-            <div key={expense.id} className="table-row table-row-expenses">
-              <span>{expense.description}</span>
-              <span>{category?.label ?? "Sin categoría"}</span>
-              <span>{formatCurrency(expense.amount)}</span>
-              <span>
-                {isAdmin ? <button type="button" className="btn" onClick={() => handleEditExpense(expense.id)}>Editar gasto</button> : "-"}
-              </span>
-            </div>
-          );
-        })}
+        ) : expenses.slice(0, 20).map((expense) => (
+          <div key={expense.id} className="table-row table-row-expenses">
+            <span>{expense.detail ?? "Sin detalle"}</span>
+            <span>{expense.category_name ?? "Sin categoría"}</span>
+            <span>{formatCurrency(expense.amount)}</span>
+            <span>
+              {isAdmin ? <button type="button" className="btn btn-danger" onClick={() => handleDeleteExpense(expense.id)}>Eliminar egreso</button> : "-"}
+            </span>
+          </div>
+        ))}
       </div>
 
       <div className="card placeholder-table">

@@ -16,6 +16,7 @@ import { Accounts } from "./pages/Accounts";
 import { TripPassengers } from "./pages/TripPassengers";
 import { CouponCollect } from "./pages/CouponCollect";
 import { UsersAdmin } from "./pages/UsersAdmin";
+import { PagoNoEfectivo } from "./pages/PagoNoEfectivo";
 
 const adminOnly = [Role.ADMIN];
 const adminOffice = [Role.ADMIN, Role.OFFICE];
@@ -116,12 +117,7 @@ export default function App() {
           path="payments/non-cash"
           element={
             <ProtectedRoute allowedRoles={adminOffice} inline>
-              <ModuleCrudPage
-                moduleKey="payments-non-cash"
-                title="Pago no efectivo"
-                description="Transferencias y medios no efectivos con comprobantes."
-                itemLabel="Pago"
-              />
+              <PagoNoEfectivo />
             </ProtectedRoute>
           }
         />

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { deletePassenger, extractCollection, fetchPassengers } from "../services/api";
+import { deletePassenger, extractCollection, fetchPassengerPayments, fetchPassengers } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 import { getPassengerBalance, PassengerItem } from "../state/passengersStorage";
 
@@ -147,7 +147,8 @@ export function TripPassengers() {
     });
   }, [passengers, search, selectedShift, sortBy]);
 
-  const exportCsv = () => {
+  const exportCsv = async () => {
+    if (!token) return;
     const planInstallments = Number(visiblePassengers[0]?.num_installments ?? 0);
     const headers: Array<string> = [
       "Nombre y Apellido",
@@ -160,23 +161,34 @@ export function TripPassengers() {
       "Turno"
     ];
 
-    const rows = visiblePassengers.map((passenger): Array<string | number> => {
-      const installments = Array.from(
-        { length: planInstallments },
-        (_, index) => (index < Number(passenger.num_installments) ? passenger.installments[index] ?? 0 : "")
-      );
+    let rows: Array<Array<string | number>> = [];
+    try {
+      rows = await Promise.all(
+        visiblePassengers.map(async (passenger): Promise<Array<string | number>> => {
+          const payments = await fetchPassengerPayments(token, passenger.id);
+          const orderedPayments = [...payments].sort((a, b) => {
+            const dateComparison = String(a.payment_date ?? "").localeCompare(String(b.payment_date ?? ""));
+            if (dateComparison !== 0) return dateComparison;
+            return a.id - b.id;
+          });
+          const realInstallments = Array.from({ length: planInstallments }, (_, index) => orderedPayments[index]?.amount ?? 0);
 
-      return [
-        `${passenger.passengerName} ${passenger.passengerLastName}`,
-        passenger.passengerDni,
-        new Date(`${passenger.passengerBirthDate}T00:00:00`).toLocaleDateString("es-AR"),
-        passenger.trip_value,
-        passenger.num_installments,
-        ...installments,
-        getPassengerBalance(passenger),
-        passenger.shift_name
-      ];
-    });
+          return [
+            `${passenger.passengerName} ${passenger.passengerLastName}`,
+            passenger.passengerDni,
+            new Date(`${passenger.passengerBirthDate}T00:00:00`).toLocaleDateString("es-AR"),
+            passenger.trip_value,
+            passenger.num_installments,
+            ...realInstallments,
+            getPassengerBalance(passenger),
+            passenger.shift_name
+          ];
+        })
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo exportar el CSV con pagos reales.");
+      return;
+    }
 
     const csvRows = [headers, ...rows];
     const csv = csvRows

@@ -14,6 +14,7 @@ class Payment extends Model
         'passenger_id',
         'trip_id',
         'date',
+        'payment_date',
         'method',
         'amount_total',
         'created_by',
@@ -22,6 +23,7 @@ class Payment extends Model
 
     protected $casts = [
         'date' => 'date',
+        'payment_date' => 'date',
         'method' => PaymentMethod::class,
     ];
 }

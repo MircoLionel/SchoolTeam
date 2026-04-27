@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { createCashExpense, deleteCashExpense, fetchCashMovements, resetCashboxRecords, type CashMovementRecord } from "../services/api";
+import { createCashExpense, deleteCashExpense, fetchCashMovements, fetchPaymentsReport, fetchUsers, resetCashboxRecords, type CashMovementRecord, type PaymentReportRecord } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 import { Role } from "../types/auth";
 import {
@@ -26,11 +26,21 @@ export function Cashbox() {
   const [categories, setCategories] = useState<CashboxCategory[]>(readCashboxCategories);
   const [audit, setAudit] = useState(() => readCashboxAudit().slice(0, 12));
   const [movements, setMovements] = useState<CashMovementRecord[]>([]);
+  const [boxFilter, setBoxFilter] = useState<"ALL" | "CASH" | "BANK">("ALL");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [reportDateFrom, setReportDateFrom] = useState(() => new Date().toISOString().slice(0, 10));
+  const [reportDateTo, setReportDateTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [reportUserId, setReportUserId] = useState<string>("all");
+  const [reportCashBox, setReportCashBox] = useState<"ALL" | "CASH" | "BANK">("ALL");
+  const [reportRows, setReportRows] = useState<PaymentReportRecord[]>([]);
+  const [users, setUsers] = useState<Array<{ id: number; name: string }>>([]);
   const [newCategory, setNewCategory] = useState({ label: "", color: "#175cd3" });
   const [expenseForm, setExpenseForm] = useState({
     categoryId: String(readCashboxCategories()[0]?.id ?? ""),
     amount: "",
     description: "",
+    cashBox: "CASH" as "CASH" | "BANK",
   });
 
   const loadMovements = async () => {
@@ -43,11 +53,49 @@ export function Cashbox() {
     loadMovements().catch(() => setMovements([]));
   }, [token]);
 
-  const incomesFromCoupons = useMemo(
-    () => movements.filter((m) => m.type === "INCOME").reduce((acc, m) => acc + m.amount, 0),
-    [movements]
+  useEffect(() => {
+    if (!token) return;
+    fetchUsers(token)
+      .then((data) => setUsers(data.map((u) => ({ id: u.id, name: u.name }))))
+      .catch(() => setUsers([]));
+  }, [token]);
+
+  const filteredMovements = useMemo(() => {
+    return movements.filter((movement) => {
+      const movementDate = movement.date?.slice(0, 10);
+      if (dateFrom && movementDate < dateFrom) return false;
+      if (dateTo && movementDate > dateTo) return false;
+      if (boxFilter === "ALL") return true;
+      const resolvedBox = movement.cash_box ?? (movement.method === "CASH" ? "CASH" : "BANK");
+      return resolvedBox === boxFilter;
+    });
+  }, [boxFilter, dateFrom, dateTo, movements]);
+
+  const incomesCash = useMemo(
+    () => filteredMovements
+      .filter((m) => m.type === "INCOME" && (m.cash_box === "CASH" || (!m.cash_box && m.method === "CASH")))
+      .reduce((acc, m) => acc + m.amount, 0),
+    [filteredMovements]
   );
-  const expenses = useMemo(() => movements.filter((m) => m.type === "EXPENSE"), [movements]);
+  const incomesBank = useMemo(
+    () => filteredMovements
+      .filter((m) => m.type === "INCOME" && (m.cash_box === "BANK" || (!m.cash_box && m.method === "TRANSFER")))
+      .reduce((acc, m) => acc + m.amount, 0),
+    [filteredMovements]
+  );
+  const expenses = useMemo(() => filteredMovements.filter((m) => m.type === "EXPENSE"), [filteredMovements]);
+  const expensesCash = useMemo(
+    () => expenses
+      .filter((m) => m.cash_box === "CASH" || !m.cash_box)
+      .reduce((acc, m) => acc + m.amount, 0),
+    [expenses]
+  );
+  const expensesBank = useMemo(
+    () => expenses
+      .filter((m) => m.cash_box === "BANK")
+      .reduce((acc, m) => acc + m.amount, 0),
+    [expenses]
+  );
 
   const amountsByCategory = useMemo(() => {
     const map = new Map<number, number>();
@@ -69,7 +117,9 @@ export function Cashbox() {
     [expenses]
   );
 
-  const balance = incomesFromCoupons - totalEgresos;
+  const cashBalance = incomesCash - expensesCash;
+  const bankBalance = incomesBank - expensesBank;
+  const balance = cashBalance + bankBalance;
 
   const chart = useMemo(() => {
     if (totalEgresos <= 0) {
@@ -186,6 +236,7 @@ export function Cashbox() {
       amount,
       description: expenseForm.description.trim() || "Sin detalle",
       category_name: category.label,
+      cash_box: expenseForm.cashBox,
     });
 
     setExpenseForm((current) => ({ ...current, amount: "", description: "" }));
@@ -199,6 +250,34 @@ export function Cashbox() {
     recordAudit("edit_expense", `Eliminó egreso #${expenseId}`);
     await loadMovements();
   };
+
+  const loadReport = async () => {
+    if (!token) return;
+    const rows = await fetchPaymentsReport(token, {
+      date_from: reportDateFrom || undefined,
+      date_to: reportDateTo || undefined,
+      user_id: reportUserId === "all" ? undefined : Number(reportUserId),
+      cash_box: reportCashBox,
+    });
+    setReportRows(rows);
+  };
+
+  useEffect(() => {
+    loadReport().catch(() => setReportRows([]));
+  }, [token]);
+
+  const totalsByDay = useMemo(() => {
+    const map = new Map<string, number>();
+    reportRows.forEach((row) => map.set(row.date, (map.get(row.date) ?? 0) + row.amount));
+    return Array.from(map.entries()).map(([date, amount]) => ({ date, amount }));
+  }, [reportRows]);
+
+  const totalsByUser = useMemo(() => {
+    const map = new Map<string, number>();
+    reportRows.forEach((row) => map.set(row.user_name, (map.get(row.user_name) ?? 0) + row.amount));
+    return Array.from(map.entries()).map(([userName, amount]) => ({ userName, amount }));
+  }, [reportRows]);
+  const reportTotal = useMemo(() => reportRows.reduce((acc, row) => acc + row.amount, 0), [reportRows]);
 
   return (
     <section className="stack">
@@ -216,6 +295,25 @@ export function Cashbox() {
       </header>
 
       <div className="card form-grid">
+        <label className="field">
+          <span>Filtro desde (caja)</span>
+          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+        </label>
+        <label className="field">
+          <span>Filtro hasta (caja)</span>
+          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+        </label>
+        <label className="field">
+          <span>Caja / medio</span>
+          <select value={boxFilter} onChange={(e) => setBoxFilter(e.target.value as "ALL" | "CASH" | "BANK")}>
+            <option value="ALL">Todas</option>
+            <option value="CASH">EFECTIVO</option>
+            <option value="BANK">BANCO</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="card form-grid">
         <form className="field" onSubmit={handleCreateCategory}>
           <span>Nueva categoría</span>
           <input value={newCategory.label} onChange={(e) => setNewCategory((c) => ({ ...c, label: e.target.value }))} placeholder="Ej: Peajes" />
@@ -231,6 +329,10 @@ export function Cashbox() {
             ))}
           </select>
           <input type="number" min="1" value={expenseForm.amount} onChange={(e) => setExpenseForm((c) => ({ ...c, amount: e.target.value }))} placeholder="Importe" />
+          <select value={expenseForm.cashBox} onChange={(e) => setExpenseForm((c) => ({ ...c, cashBox: e.target.value as "CASH" | "BANK" }))}>
+            <option value="CASH">Caja efectivo</option>
+            <option value="BANK">Caja banco</option>
+          </select>
           <input value={expenseForm.description} onChange={(e) => setExpenseForm((c) => ({ ...c, description: e.target.value }))} placeholder="Detalle (opcional)" />
           <button className="btn" type="submit">Guardar gasto</button>
         </form>
@@ -250,16 +352,20 @@ export function Cashbox() {
         <div className="card cashbox-summary">
           <h3>Movimientos del mes</h3>
           <div className="cashbox-row">
-            <span>Ingresos (cupones)</span>
-            <strong>{formatCurrency(incomesFromCoupons)}</strong>
+            <span>Caja efectivo</span>
+            <strong>{formatCurrency(cashBalance)}</strong>
           </div>
           <div className="cashbox-row">
-            <span>Egresos</span>
-            <strong>{formatCurrency(totalEgresos)}</strong>
+            <span>Caja banco</span>
+            <strong>{formatCurrency(bankBalance)}</strong>
+          </div>
+          <div className="cashbox-row">
+            <span>Total caja (efectivo + banco)</span>
+            <strong>{formatCurrency(balance)}</strong>
           </div>
           <div className="cashbox-row total">
-            <span>Resultado</span>
-            <strong>{formatCurrency(balance)}</strong>
+            <span>Ingresos totales / Egresos totales</span>
+            <strong>{formatCurrency(incomesCash + incomesBank)} / {formatCurrency(totalEgresos)}</strong>
           </div>
         </div>
       </div>
@@ -287,21 +393,93 @@ export function Cashbox() {
         })}
       </div>
 
+      <div className="card">
+        <h3>Reporte diario de cobros por usuario</h3>
+        <div className="form-row">
+          <label className="field">
+            <span>Desde</span>
+            <input type="date" value={reportDateFrom} onChange={(e) => setReportDateFrom(e.target.value)} />
+          </label>
+          <label className="field">
+            <span>Hasta</span>
+            <input type="date" value={reportDateTo} onChange={(e) => setReportDateTo(e.target.value)} />
+          </label>
+          <label className="field">
+            <span>Usuario</span>
+            <select value={reportUserId} onChange={(e) => setReportUserId(e.target.value)}>
+              <option value="all">Todos</option>
+              {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+          </label>
+          <label className="field">
+            <span>Medio / Caja</span>
+            <select value={reportCashBox} onChange={(e) => setReportCashBox(e.target.value as "ALL" | "CASH" | "BANK")}>
+              <option value="ALL">Todos</option>
+              <option value="CASH">EFECTIVO</option>
+              <option value="BANK">BANCO</option>
+            </select>
+          </label>
+        </div>
+        <div className="form-actions">
+          <button type="button" className="btn" onClick={() => loadReport().catch(() => setReportRows([]))}>Filtrar reporte</button>
+        </div>
+      </div>
+
+      <div className="card placeholder-table">
+        <div className="table-row header">
+          <span>Fecha</span><span>Usuario</span><span>Escuela</span><span>Salida</span><span>Pasajero</span><span>Medio</span><span>Monto</span>
+        </div>
+        {reportRows.length === 0 ? (
+          <div className="table-row"><span>Sin datos</span><span>-</span><span>-</span><span>-</span><span>-</span><span>-</span><span>-</span></div>
+        ) : reportRows.map((row) => (
+          <div className="table-row" key={row.id}>
+            <span>{row.date}</span>
+            <span>{row.user_name}</span>
+            <span>{row.school_name}</span>
+            <span>{row.trip_name || row.trip_destination || "-"}</span>
+            <span>{row.passenger_name}</span>
+            <span>{row.cash_box === "BANK" ? "BANCO/TRANSFERENCIA" : "EFECTIVO"}</span>
+            <span>{formatCurrency(row.amount)}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="card placeholder-table">
+        <div className="table-row header">
+          <span>Total por día</span><span>Monto</span>
+        </div>
+        {totalsByDay.map((row) => (
+          <div className="table-row" key={row.date}><span>{row.date}</span><span>{formatCurrency(row.amount)}</span></div>
+        ))}
+      </div>
+
+      <div className="card placeholder-table">
+        <div className="table-row header">
+          <span>Total por usuario</span><span>Monto</span>
+        </div>
+        {totalsByUser.map((row) => (
+          <div className="table-row" key={row.userName}><span>{row.userName}</span><span>{formatCurrency(row.amount)}</span></div>
+        ))}
+        <div className="table-row"><span><strong>Total general</strong></span><span><strong>{formatCurrency(reportTotal)}</strong></span></div>
+      </div>
+
       <div className="card placeholder-table">
         <div className="table-row header table-row-expenses">
           <span>Gasto</span>
           <span>Categoría</span>
+          <span>Caja</span>
           <span>Importe</span>
           <span>Acción</span>
         </div>
         {expenses.length === 0 ? (
           <div className="table-row table-row-expenses">
-            <span>Sin gastos registrados</span><span>-</span><span>-</span><span>-</span>
+            <span>Sin gastos registrados</span><span>-</span><span>-</span><span>-</span><span>-</span>
           </div>
         ) : expenses.slice(0, 20).map((expense) => (
           <div key={expense.id} className="table-row table-row-expenses">
             <span>{expense.detail ?? "Sin detalle"}</span>
             <span>{expense.category_name ?? "Sin categoría"}</span>
+            <span>{expense.cash_box === "BANK" ? "BANCO" : "EFECTIVO"}</span>
             <span>{formatCurrency(expense.amount)}</span>
             <span>
               {isAdmin ? <button type="button" className="btn btn-danger" onClick={() => handleDeleteExpense(expense.id)}>Eliminar egreso</button> : "-"}

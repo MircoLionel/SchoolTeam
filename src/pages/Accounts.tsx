@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { extractCollection, fetchPassengers, fetchTrips, renderCheckbookPdf } from "../services/api";
+import { extractCollection, fetchPassengerPayments, fetchPassengers, fetchTrips, PassengerPaymentRecord, renderCheckbookPdf } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 import { appendPassengerAudit, getPassengerBalance, PassengerItem, readPassengerAudit, saveStoredPassengers } from "../state/passengersStorage";
 
@@ -25,6 +25,11 @@ export function Accounts() {
   const [tripDestinations, setTripDestinations] = useState<Record<number, string>>({});
   const [backendTrips, setBackendTrips] = useState<TripOption[]>([]);
   const [passengers, setPassengers] = useState<PassengerItem[]>([]);
+  const [paymentsPassengerId, setPaymentsPassengerId] = useState<number | null>(null);
+  const [paymentsPassengerName, setPaymentsPassengerName] = useState("");
+  const [paymentHistory, setPaymentHistory] = useState<PassengerPaymentRecord[]>([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [paymentsError, setPaymentsError] = useState<string | null>(null);
 
   const normalizePassengers = (payload: unknown): PassengerItem[] => {
     const records = extractCollection<Record<string, unknown>>(payload);
@@ -317,6 +322,51 @@ export function Accounts() {
     navigate(`/passengers?editPassengerId=${id}`);
   };
 
+  const paymentMethodLabel = (payment: PassengerPaymentRecord) => {
+    if (payment.method === "CASH") return "Efectivo";
+    if (payment.method === "TRANSFER") return "Transferencia";
+    if (payment.method === "BANK") return "Banco";
+    return payment.cash_box === "BANK" ? "Banco" : "Efectivo";
+  };
+
+  const formatPaymentDate = (dateValue: string) => {
+    if (!dateValue) return "-";
+    const parsed = new Date(`${dateValue}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return dateValue;
+    return parsed.toLocaleDateString("es-AR");
+  };
+
+  const openPaymentsHistory = async (row: (typeof rows)[number]) => {
+    if (!token) {
+      setPaymentsError("No hay sesión activa para consultar pagos.");
+      return;
+    }
+
+    if (paymentsPassengerId === row.id) {
+      setPaymentsPassengerId(null);
+      setPaymentHistory([]);
+      setPaymentsError(null);
+      setPaymentsPassengerName("");
+      return;
+    }
+
+    setPaymentsPassengerId(row.id);
+    setPaymentsPassengerName(row.passenger);
+    setPaymentsLoading(true);
+    setPaymentsError(null);
+
+    try {
+      const records = await fetchPassengerPayments(token, row.id);
+      setPaymentHistory(records);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudieron cargar los pagos del pasajero.";
+      setPaymentsError(message);
+      setPaymentHistory([]);
+    } finally {
+      setPaymentsLoading(false);
+    }
+  };
+
   return (
     <section className="stack">
       <header className="page-header">
@@ -406,8 +456,38 @@ export function Accounts() {
               <div className="account-actions">
                 <button type="button" className="btn" onClick={() => printCheckbook(row)}>Imprimir chequera</button>
                 <button type="button" className="btn" onClick={() => editPassenger(row.id)}>Editar pasajero</button>
+                <button type="button" className="btn" onClick={() => openPaymentsHistory(row)}>Ver registros de pago</button>
               </div>
             </div>
+
+            {paymentsPassengerId === row.id ? (
+              <div className="card placeholder-table">
+                <h4>Historial de pagos · {paymentsPassengerName}</h4>
+                {paymentsLoading ? <p>Cargando pagos...</p> : null}
+                {paymentsError ? <p className="badge badge-negative">{paymentsError}</p> : null}
+
+                {!paymentsLoading && !paymentsError ? (
+                  <>
+                    <div className="table-row header">
+                      <span>Fecha de cobro</span><span>Medio de pago</span><span>Monto pagado</span><span>Usuario</span><span>Observación / detalle</span>
+                    </div>
+                    {paymentHistory.length === 0 ? (
+                      <div className="table-row">
+                        <span>Sin pagos</span><span>-</span><span>-</span><span>-</span><span>-</span>
+                      </div>
+                    ) : paymentHistory.map((payment) => (
+                      <div key={payment.id} className="table-row">
+                        <span>{formatPaymentDate(payment.payment_date)}</span>
+                        <span>{paymentMethodLabel(payment)}</span>
+                        <span>{currencyFormatter.format(payment.amount)}</span>
+                        <span>{payment.user_name}</span>
+                        <span>{payment.detail?.trim() || "-"}</span>
+                      </div>
+                    ))}
+                  </>
+                ) : null}
+              </div>
+            ) : null}
           </article>
         ))}
       </div>

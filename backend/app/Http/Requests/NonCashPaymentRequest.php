@@ -15,11 +15,13 @@ class NonCashPaymentRequest extends FormRequest
     {
         return [
             'passenger_id' => ['required', 'integer'],
-            'trip_id' => ['required', 'integer'],
+            'trip_id' => ['nullable', 'integer'],
             'amount' => ['required', 'numeric', 'min:0'],
-            'method' => ['required', 'string'],
+            'method' => ['nullable', 'in:TRANSFER,BANK'],
             'reference' => ['nullable', 'string'],
+            'detail' => ['nullable', 'string'],
             'date' => ['nullable', 'date'],
+            'payment_date' => ['nullable', 'date'],
         ];
     }
 }

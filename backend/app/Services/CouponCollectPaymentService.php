@@ -24,6 +24,7 @@ class CouponCollectPaymentService
                 'passenger_id' => $passenger->id,
                 'trip_id' => $tripId,
                 'date' => $payload['date'] ?? now()->toDateString(),
+                'payment_date' => $payload['payment_date'] ?? $payload['date'] ?? now()->toDateString(),
                 'method' => PaymentMethod::CASH->value,
                 'amount_total' => $payload['amount'],
                 'created_by' => $userId,
@@ -56,9 +57,11 @@ class CouponCollectPaymentService
                 'category_id' => $category->id,
                 'amount' => $payload['amount'],
                 'method' => PaymentMethod::CASH->value,
+                'cash_box' => 'CASH',
                 'detail' => $payload['detail'] ?? 'Cobro de cupón',
                 'attachment_path' => null,
                 'created_by' => $userId,
+                'payment_id' => $payment->id,
             ]);
 
             return $payment;

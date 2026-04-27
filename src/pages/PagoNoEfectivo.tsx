@@ -1,11 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { deletePayment, extractCollection, fetchPassengerPayments, fetchPassengers, fetchSchools, PassengerPaymentRecord, registerCouponCollectPayment } from "../services/api";
-import {
-  appendPassengerAudit,
-  getPassengerBalance,
-  PassengerItem,
-  saveStoredPassengers
-} from "../state/passengersStorage";
+import { deletePayment, extractCollection, fetchPassengerPayments, fetchPassengers, fetchSchools, PassengerPaymentRecord, registerNonCashPayment } from "../services/api";
+import { getPassengerBalance, PassengerItem, saveStoredPassengers } from "../state/passengersStorage";
 import { useAuth } from "../state/AuthContext";
 
 const currencyFormatter = new Intl.NumberFormat("es-AR", {
@@ -43,14 +38,15 @@ function normalizePassengers(payload: unknown): PassengerItem[] {
   }));
 }
 
-export function CouponCollect() {
-  const { user, token } = useAuth();
+export function PagoNoEfectivo() {
+  const { token } = useAuth();
   const [query, setQuery] = useState("");
   const [selectedSchoolId, setSelectedSchoolId] = useState<string>("all");
   const [schools, setSchools] = useState<SchoolFilterItem[]>([]);
   const [selectedPassengerId, setSelectedPassengerId] = useState("");
   const [amount, setAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [reference, setReference] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -127,35 +123,24 @@ export function CouponCollect() {
 
     try {
       setIsSubmitting(true);
-
-      await registerCouponCollectPayment(token, {
+      await registerNonCashPayment(token, {
         passenger_id: passengerId,
         trip_id: selected.trip_id > 0 ? selected.trip_id : undefined,
         amount: payment,
-        payment_method: "CASH",
-        collected_by: user?.id,
-        detail: `Cobro de cupón de ${selected.passengerName} ${selected.passengerLastName}`,
+        method: "TRANSFER",
+        reference: reference.trim() || undefined,
+        detail: `Pago no efectivo de ${selected.passengerName} ${selected.passengerLastName}`,
         payment_date: paymentDate,
-      });
-
-      appendPassengerAudit({
-        id: Date.now() + 1,
-        passengerId,
-        passengerLabel: `${selected.passengerName} ${selected.passengerLastName}`,
-        action: "payment",
-        actorName: user?.name ?? "Sistema",
-        actorRole: user?.role ?? "UNKNOWN",
-        createdAt: new Date().toISOString(),
-        detail: `Cobro de cupón por ${currencyFormatter.format(payment)}`
       });
 
       await loadPassengers();
       const rows = await fetchPassengerPayments(token, passengerId);
       setHistory(rows);
-      setMessage(`Cobro registrado: ${currencyFormatter.format(payment)} para ${selected.passengerName} ${selected.passengerLastName}.`);
+      setMessage(`Pago no efectivo registrado: ${currencyFormatter.format(payment)} para ${selected.passengerName} ${selected.passengerLastName}.`);
       setAmount("");
+      setReference("");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "No se pudo registrar el cobro.";
+      const message = error instanceof Error ? error.message : "No se pudo registrar el pago no efectivo.";
       setErrorMessage(message);
     } finally {
       setIsSubmitting(false);
@@ -183,8 +168,8 @@ export function CouponCollect() {
     <section className="stack">
       <header className="page-header">
         <div>
-          <h1>Cobro de cupón</h1>
-          <p>Filtrá por escuela/pasajero y registrá el pago para impactar en cuenta y caja.</p>
+          <h1>Pago no efectivo</h1>
+          <p>Registrá transferencias/banco para impactar cuenta corriente y caja BANCO.</p>
         </div>
       </header>
 
@@ -222,10 +207,14 @@ export function CouponCollect() {
             <span>Fecha de pago</span>
             <input type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} required />
           </label>
+          <label className="field">
+            <span>Referencia (opcional)</span>
+            <input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="CBU, comprobante, alias..." />
+          </label>
         </div>
 
         <div className="form-actions">
-          <button type="submit" className="btn" disabled={isSubmitting}>{isSubmitting ? "Registrando..." : "Registrar cobro"}</button>
+          <button type="submit" className="btn" disabled={isSubmitting}>{isSubmitting ? "Registrando..." : "Registrar pago"}</button>
         </div>
       </form>
 

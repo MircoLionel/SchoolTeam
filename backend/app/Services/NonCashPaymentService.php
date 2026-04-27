@@ -27,6 +27,7 @@ class NonCashPaymentService
                 'passenger_id' => $passenger->id,
                 'trip_id' => $tripId,
                 'date' => $payload['date'] ?? now()->toDateString(),
+                'payment_date' => $payload['payment_date'] ?? $payload['date'] ?? now()->toDateString(),
                 'method' => $method,
                 'amount_total' => $payload['amount'],
                 'created_by' => $userId,
@@ -63,6 +64,7 @@ class NonCashPaymentService
                 'detail' => $payload['detail'] ?? 'Pago no efectivo',
                 'attachment_path' => null,
                 'created_by' => $userId,
+                'payment_id' => $payment->id,
             ]);
 
             InternalReceipt::create([

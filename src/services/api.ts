@@ -360,12 +360,40 @@ export interface CashMovementRecord {
   detail?: string | null;
   category_id?: number;
   category_name?: string | null;
+  payment_id?: number;
   created_at?: string;
+}
+
+export interface PassengerPaymentRecord {
+  id: number;
+  payment_date: string;
+  amount: number;
+  method: string;
+  cash_box: "CASH" | "BANK" | string;
+  user_name: string;
+  school_name: string;
+  trip_name: string;
+  trip_destination?: string;
+  passenger_name: string;
+}
+
+export interface PaymentReportRecord {
+  id: number;
+  date: string;
+  amount: number;
+  method: string;
+  cash_box: "CASH" | "BANK" | string;
+  user_id: number;
+  user_name: string;
+  school_name: string;
+  trip_name: string;
+  trip_destination?: string;
+  passenger_name: string;
 }
 
 export async function registerCouponCollectPayment(
   token: string,
-  payload: { passenger_id: number; trip_id?: number; amount: number; reason?: string; detail?: string; payment_method?: string; collected_by?: number }
+  payload: { passenger_id: number; trip_id?: number; amount: number; reason?: string; detail?: string; payment_method?: string; collected_by?: number; payment_date?: string }
 ) {
   return apiRequest<{ payment: { id: number } }>("/payments/coupon-collect", {
     method: "POST",
@@ -376,12 +404,35 @@ export async function registerCouponCollectPayment(
 
 export async function registerNonCashPayment(
   token: string,
-  payload: { passenger_id: number; trip_id?: number; amount: number; method?: "TRANSFER" | "BANK"; reference?: string; detail?: string; date?: string }
+  payload: { passenger_id: number; trip_id?: number; amount: number; method?: "TRANSFER" | "BANK"; reference?: string; detail?: string; date?: string; payment_date?: string }
 ) {
   return apiRequest<{ payment: { id: number } }>("/payments/non-cash", {
     method: "POST",
     token,
     body: JSON.stringify(payload)
+  });
+}
+
+export async function fetchPassengerPayments(token: string, passengerId: number) {
+  return apiRequest<PassengerPaymentRecord[]>(`/passengers/${passengerId}/payments`, { token });
+}
+
+export async function fetchPaymentsReport(
+  token: string,
+  params: { date_from?: string; date_to?: string; user_id?: number; cash_box?: "CASH" | "BANK" | "ALL" }
+) {
+  const query = new URLSearchParams();
+  if (params.date_from) query.set("date_from", params.date_from);
+  if (params.date_to) query.set("date_to", params.date_to);
+  if (params.user_id) query.set("user_id", String(params.user_id));
+  if (params.cash_box) query.set("cash_box", params.cash_box);
+  return apiRequest<PaymentReportRecord[]>(`/payments/report?${query.toString()}`, { token });
+}
+
+export async function deletePayment(token: string, paymentId: number) {
+  return apiRequest<{ message: string }>(`/payments/${paymentId}`, {
+    method: "DELETE",
+    token
   });
 }
 

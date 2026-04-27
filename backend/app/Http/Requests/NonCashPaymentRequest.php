@@ -21,6 +21,7 @@ class NonCashPaymentRequest extends FormRequest
             'reference' => ['nullable', 'string'],
             'detail' => ['nullable', 'string'],
             'date' => ['nullable', 'date'],
+            'payment_date' => ['nullable', 'date'],
         ];
     }
 }

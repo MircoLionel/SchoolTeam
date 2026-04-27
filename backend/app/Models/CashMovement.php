@@ -19,6 +19,7 @@ class CashMovement extends Model
         'detail',
         'attachment_path',
         'created_by',
+        'payment_id',
     ];
 
     protected $casts = [

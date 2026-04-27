@@ -25,6 +25,7 @@ class CashMovementController extends Controller
                 'detail' => $movement->detail,
                 'category_id' => $movement->category_id,
                 'category_name' => $movement->category?->name,
+                'payment_id' => $movement->payment_id,
                 'created_at' => optional($movement->created_at)?->toISOString(),
             ]);
 

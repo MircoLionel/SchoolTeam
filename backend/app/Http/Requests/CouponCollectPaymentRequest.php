@@ -22,6 +22,7 @@ class CouponCollectPaymentRequest extends FormRequest
             'reason' => ['nullable', 'string'],
             'detail' => ['nullable', 'string'],
             'date' => ['nullable', 'date'],
+            'payment_date' => ['nullable', 'date'],
         ];
     }
 }

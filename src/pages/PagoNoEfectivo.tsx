@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { extractCollection, fetchPassengers, fetchSchools, registerNonCashPayment } from "../services/api";
+import { deletePayment, extractCollection, fetchPassengerPayments, fetchPassengers, fetchSchools, PassengerPaymentRecord, registerNonCashPayment } from "../services/api";
 import { getPassengerBalance, PassengerItem, saveStoredPassengers } from "../state/passengersStorage";
 import { useAuth } from "../state/AuthContext";
 
@@ -45,11 +45,13 @@ export function PagoNoEfectivo() {
   const [schools, setSchools] = useState<SchoolFilterItem[]>([]);
   const [selectedPassengerId, setSelectedPassengerId] = useState("");
   const [amount, setAmount] = useState("");
+  const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [reference, setReference] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [passengers, setPassengers] = useState<PassengerItem[]>([]);
+  const [history, setHistory] = useState<PassengerPaymentRecord[]>([]);
 
   const loadPassengers = async () => {
     if (!token) return;
@@ -89,6 +91,16 @@ export function PagoNoEfectivo() {
   const selectedBalance = selectedPassenger ? getPassengerBalance(selectedPassenger) : null;
   const remainingAmount = selectedPassenger ? Math.max(0, selectedPassenger.trip_value - selectedPassenger.paid_amount) : 0;
 
+  useEffect(() => {
+    if (!token || !selectedPassengerId) {
+      setHistory([]);
+      return;
+    }
+    fetchPassengerPayments(token, Number(selectedPassengerId))
+      .then((rows) => setHistory(rows))
+      .catch(() => setHistory([]));
+  }, [token, selectedPassengerId]);
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!token || isSubmitting) return;
@@ -118,9 +130,12 @@ export function PagoNoEfectivo() {
         method: "TRANSFER",
         reference: reference.trim() || undefined,
         detail: `Pago no efectivo de ${selected.passengerName} ${selected.passengerLastName}`,
+        payment_date: paymentDate,
       });
 
       await loadPassengers();
+      const rows = await fetchPassengerPayments(token, passengerId);
+      setHistory(rows);
       setMessage(`Pago no efectivo registrado: ${currencyFormatter.format(payment)} para ${selected.passengerName} ${selected.passengerLastName}.`);
       setAmount("");
       setReference("");
@@ -129,6 +144,23 @@ export function PagoNoEfectivo() {
       setErrorMessage(message);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeletePayment = async (paymentId: number) => {
+    if (!token) return;
+    if (!window.confirm("¿Eliminar este pago? Esta acción impacta cuenta y caja.")) return;
+    try {
+      await deletePayment(token, paymentId);
+      await loadPassengers();
+      if (selectedPassengerId) {
+        const rows = await fetchPassengerPayments(token, Number(selectedPassengerId));
+        setHistory(rows);
+      }
+      setMessage("Pago eliminado correctamente.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo eliminar el pago.";
+      setErrorMessage(message);
     }
   };
 
@@ -172,6 +204,10 @@ export function PagoNoEfectivo() {
             <input type="number" min="1" value={amount} onChange={(event) => setAmount(event.target.value)} required />
           </label>
           <label className="field">
+            <span>Fecha de pago</span>
+            <input type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} required />
+          </label>
+          <label className="field">
             <span>Referencia (opcional)</span>
             <input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="CBU, comprobante, alias..." />
           </label>
@@ -198,6 +234,26 @@ export function PagoNoEfectivo() {
                 ? "Saldo al día"
                 : `Saldo a favor ${currencyFormatter.format(selectedBalance)}`}
           </p>
+        </div>
+      ) : null}
+
+      {selectedPassenger ? (
+        <div className="card placeholder-table">
+          <div className="table-row header">
+            <span>Fecha</span><span>Medio</span><span>Monto</span><span>Usuario</span><span>Escuela / Salida</span><span>Acción</span>
+          </div>
+          {history.length === 0 ? (
+            <div className="table-row"><span>Sin pagos</span><span>-</span><span>-</span><span>-</span><span>-</span><span>-</span></div>
+          ) : history.map((item) => (
+            <div key={item.id} className="table-row">
+              <span>{item.payment_date}</span>
+              <span>{item.cash_box === "BANK" ? "Transferencia/Banco" : "Efectivo"}</span>
+              <span>{currencyFormatter.format(item.amount)}</span>
+              <span>{item.user_name}</span>
+              <span>{item.school_name} / {item.trip_name || item.trip_destination || "-"}</span>
+              <span><button type="button" className="btn btn-danger" onClick={() => handleDeletePayment(item.id)}>Eliminar</button></span>
+            </div>
+          ))}
         </div>
       ) : null}
 

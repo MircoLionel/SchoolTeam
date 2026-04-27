@@ -45,6 +45,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/payments/non-cash', [PaymentController::class, 'storeNonCash']);
     Route::post('/payments/coupon-collect', [PaymentController::class, 'storeCouponCollect']);
+    Route::get('/payments/report', [PaymentController::class, 'report']);
+    Route::delete('/payments/{payment}', [PaymentController::class, 'destroy']);
+    Route::get('/passengers/{passenger}/payments', [PaymentController::class, 'passengerPayments']);
     Route::get('/payments/{payment}/receipt', [PaymentController::class, 'receipt']);
 
     Route::get('/accounts/{passenger}', [ReportController::class, 'passengerAccount']);

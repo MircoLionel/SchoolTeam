@@ -57,12 +57,14 @@ class PaymentController extends Controller
                 'payments.payment_date',
                 'payments.amount_total',
                 'payments.method',
+                'payments.notes',
                 'users.name as user_name',
                 'schools.name as school_name',
                 'trips.group_name as trip_name',
                 'trips.destination as trip_destination',
                 'passengers.full_name as passenger_name',
                 'cm.cash_box',
+                'cm.detail as cash_detail',
             ])
             ->map(function ($row) {
                 $cashBox = $row->cash_box ?? ($row->method === 'CASH' ? 'CASH' : 'BANK');
@@ -78,6 +80,7 @@ class PaymentController extends Controller
                     'trip_name' => $row->trip_name,
                     'trip_destination' => $row->trip_destination,
                     'passenger_name' => $row->passenger_name,
+                    'detail' => $row->cash_detail ?? $row->notes,
                 ];
             });
 

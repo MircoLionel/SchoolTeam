@@ -375,6 +375,7 @@ export interface PassengerPaymentRecord {
   trip_name: string;
   trip_destination?: string;
   passenger_name: string;
+  detail?: string | null;
 }
 
 export interface PaymentReportRecord {

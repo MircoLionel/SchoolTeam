@@ -56,6 +56,7 @@ class CouponCollectPaymentService
                 'category_id' => $category->id,
                 'amount' => $payload['amount'],
                 'method' => PaymentMethod::CASH->value,
+                'cash_box' => 'CASH',
                 'detail' => $payload['detail'] ?? 'Cobro de cupón',
                 'attachment_path' => null,
                 'created_by' => $userId,

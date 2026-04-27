@@ -31,6 +31,7 @@ export function Cashbox() {
     categoryId: String(readCashboxCategories()[0]?.id ?? ""),
     amount: "",
     description: "",
+    cashBox: "CASH" as "CASH" | "BANK",
   });
 
   const loadMovements = async () => {
@@ -43,11 +44,31 @@ export function Cashbox() {
     loadMovements().catch(() => setMovements([]));
   }, [token]);
 
-  const incomesFromCoupons = useMemo(
-    () => movements.filter((m) => m.type === "INCOME").reduce((acc, m) => acc + m.amount, 0),
+  const incomesCash = useMemo(
+    () => movements
+      .filter((m) => m.type === "INCOME" && (m.cash_box === "CASH" || (!m.cash_box && m.method === "CASH")))
+      .reduce((acc, m) => acc + m.amount, 0),
+    [movements]
+  );
+  const incomesBank = useMemo(
+    () => movements
+      .filter((m) => m.type === "INCOME" && (m.cash_box === "BANK" || (!m.cash_box && m.method === "TRANSFER")))
+      .reduce((acc, m) => acc + m.amount, 0),
     [movements]
   );
   const expenses = useMemo(() => movements.filter((m) => m.type === "EXPENSE"), [movements]);
+  const expensesCash = useMemo(
+    () => expenses
+      .filter((m) => m.cash_box === "CASH" || !m.cash_box)
+      .reduce((acc, m) => acc + m.amount, 0),
+    [expenses]
+  );
+  const expensesBank = useMemo(
+    () => expenses
+      .filter((m) => m.cash_box === "BANK")
+      .reduce((acc, m) => acc + m.amount, 0),
+    [expenses]
+  );
 
   const amountsByCategory = useMemo(() => {
     const map = new Map<number, number>();
@@ -69,7 +90,9 @@ export function Cashbox() {
     [expenses]
   );
 
-  const balance = incomesFromCoupons - totalEgresos;
+  const cashBalance = incomesCash - expensesCash;
+  const bankBalance = incomesBank - expensesBank;
+  const balance = cashBalance + bankBalance;
 
   const chart = useMemo(() => {
     if (totalEgresos <= 0) {
@@ -186,6 +209,7 @@ export function Cashbox() {
       amount,
       description: expenseForm.description.trim() || "Sin detalle",
       category_name: category.label,
+      cash_box: expenseForm.cashBox,
     });
 
     setExpenseForm((current) => ({ ...current, amount: "", description: "" }));
@@ -231,6 +255,10 @@ export function Cashbox() {
             ))}
           </select>
           <input type="number" min="1" value={expenseForm.amount} onChange={(e) => setExpenseForm((c) => ({ ...c, amount: e.target.value }))} placeholder="Importe" />
+          <select value={expenseForm.cashBox} onChange={(e) => setExpenseForm((c) => ({ ...c, cashBox: e.target.value as "CASH" | "BANK" }))}>
+            <option value="CASH">Caja efectivo</option>
+            <option value="BANK">Caja banco</option>
+          </select>
           <input value={expenseForm.description} onChange={(e) => setExpenseForm((c) => ({ ...c, description: e.target.value }))} placeholder="Detalle (opcional)" />
           <button className="btn" type="submit">Guardar gasto</button>
         </form>
@@ -250,16 +278,20 @@ export function Cashbox() {
         <div className="card cashbox-summary">
           <h3>Movimientos del mes</h3>
           <div className="cashbox-row">
-            <span>Ingresos (cupones)</span>
-            <strong>{formatCurrency(incomesFromCoupons)}</strong>
+            <span>Caja efectivo</span>
+            <strong>{formatCurrency(cashBalance)}</strong>
           </div>
           <div className="cashbox-row">
-            <span>Egresos</span>
-            <strong>{formatCurrency(totalEgresos)}</strong>
+            <span>Caja banco</span>
+            <strong>{formatCurrency(bankBalance)}</strong>
+          </div>
+          <div className="cashbox-row">
+            <span>Total caja (efectivo + banco)</span>
+            <strong>{formatCurrency(balance)}</strong>
           </div>
           <div className="cashbox-row total">
-            <span>Resultado</span>
-            <strong>{formatCurrency(balance)}</strong>
+            <span>Ingresos totales / Egresos totales</span>
+            <strong>{formatCurrency(incomesCash + incomesBank)} / {formatCurrency(totalEgresos)}</strong>
           </div>
         </div>
       </div>
@@ -291,17 +323,19 @@ export function Cashbox() {
         <div className="table-row header table-row-expenses">
           <span>Gasto</span>
           <span>Categoría</span>
+          <span>Caja</span>
           <span>Importe</span>
           <span>Acción</span>
         </div>
         {expenses.length === 0 ? (
           <div className="table-row table-row-expenses">
-            <span>Sin gastos registrados</span><span>-</span><span>-</span><span>-</span>
+            <span>Sin gastos registrados</span><span>-</span><span>-</span><span>-</span><span>-</span>
           </div>
         ) : expenses.slice(0, 20).map((expense) => (
           <div key={expense.id} className="table-row table-row-expenses">
             <span>{expense.detail ?? "Sin detalle"}</span>
             <span>{expense.category_name ?? "Sin categoría"}</span>
+            <span>{expense.cash_box === "BANK" ? "BANCO" : "EFECTIVO"}</span>
             <span>{formatCurrency(expense.amount)}</span>
             <span>
               {isAdmin ? <button type="button" className="btn btn-danger" onClick={() => handleDeleteExpense(expense.id)}>Eliminar egreso</button> : "-"}

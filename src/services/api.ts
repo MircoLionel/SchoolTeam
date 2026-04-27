@@ -356,6 +356,7 @@ export interface CashMovementRecord {
   type: "INCOME" | "EXPENSE" | string;
   amount: number;
   method?: string | null;
+  cash_box?: "CASH" | "BANK" | string | null;
   detail?: string | null;
   category_id?: number;
   category_name?: string | null;
@@ -373,13 +374,24 @@ export async function registerCouponCollectPayment(
   });
 }
 
+export async function registerNonCashPayment(
+  token: string,
+  payload: { passenger_id: number; trip_id?: number; amount: number; method?: "TRANSFER" | "BANK"; reference?: string; detail?: string; date?: string }
+) {
+  return apiRequest<{ payment: { id: number } }>("/payments/non-cash", {
+    method: "POST",
+    token,
+    body: JSON.stringify(payload)
+  });
+}
+
 export async function fetchCashMovements(token: string) {
   return apiRequest<CashMovementRecord[]>("/cash-movements", { token });
 }
 
 export async function createCashExpense(
   token: string,
-  payload: { amount: number; description?: string; category_name?: string }
+  payload: { amount: number; description?: string; category_name?: string; cash_box?: "CASH" | "BANK" }
 ) {
   return apiRequest<{ movement: CashMovementRecord }>("/cash-movements/expense", {
     method: "POST",

@@ -21,6 +21,7 @@ class CashMovementController extends Controller
                 'type' => $movement->type,
                 'amount' => (float) $movement->amount,
                 'method' => $movement->method,
+                'cash_box' => $movement->cash_box,
                 'detail' => $movement->detail,
                 'category_id' => $movement->category_id,
                 'category_name' => $movement->category?->name,
@@ -36,6 +37,7 @@ class CashMovementController extends Controller
             'amount' => ['required', 'numeric', 'min:0.01'],
             'description' => ['nullable', 'string'],
             'category_name' => ['nullable', 'string', 'max:255'],
+            'cash_box' => ['nullable', 'in:CASH,BANK'],
             'date' => ['nullable', 'date'],
         ]);
 
@@ -49,6 +51,7 @@ class CashMovementController extends Controller
             'category_id' => $category->id,
             'amount' => $data['amount'],
             'method' => null,
+            'cash_box' => $data['cash_box'] ?? 'CASH',
             'detail' => $data['description'] ?? 'Sin detalle',
             'attachment_path' => null,
             'created_by' => $request->user()->id,

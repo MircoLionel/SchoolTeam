@@ -15,6 +15,7 @@ class CashMovement extends Model
         'category_id',
         'amount',
         'method',
+        'cash_box',
         'detail',
         'attachment_path',
         'created_by',

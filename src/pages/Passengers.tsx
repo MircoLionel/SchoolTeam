@@ -114,6 +114,7 @@ export function Passengers() {
   const [trips, setTrips] = useState<TripItem[]>([]);
   const [shifts, setShifts] = useState<ShiftItem[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingPassenger, setEditingPassenger] = useState<PassengerItem | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [form, setForm] = useState<PassengerForm>(() => mergeFormWithTemplate(readFormTemplate()));
@@ -362,8 +363,8 @@ export function Passengers() {
     }
 
     try {
-      if (editingId) {
-        await updatePassenger(token, editingId, {
+      if (editingPassenger) {
+        await updatePassenger(token, editingPassenger.id, {
           school_id: school.id,
           trip_id: trip.id,
           shift_id: shift.id,
@@ -418,37 +419,53 @@ export function Passengers() {
     }
 
     setError(null);
-    setSuccess(editingId ? "Cambios guardados correctamente." : "Pasajero guardado correctamente.");
+    setSuccess(editingPassenger ? "Pasajero actualizado" : "Pasajero guardado correctamente.");
 
     appendPassengerAudit({
       id: Date.now(),
       passengerId: nextItem.id,
       passengerLabel: `${nextItem.passengerName} ${nextItem.passengerLastName}`,
-      action: editingId ? "update" : "create",
+      action: editingPassenger ? "update" : "create",
       actorName: user?.name ?? "Sistema",
       actorRole: user?.role ?? "UNKNOWN",
-      detail: editingId ? "Edición desde Pasajeros" : "Alta de pasajero"
+      detail: editingPassenger ? "Edición desde Pasajeros" : "Alta de pasajero"
     });
 
-    const template: PassengerFormTemplate = {
-      school_id: form.school_id,
-      trip_id: form.trip_id,
-      shift_id: form.shift_id,
-      isAdultCompanion: form.isAdultCompanion,
-      hasSpecialPrice: form.hasSpecialPrice,
-      specialPrice: form.specialPrice,
-      numInstallments: String(count),
-      installments: finalInstallments
-    };
-    sessionStorage.setItem(PASSENGER_FORM_TEMPLATE_KEY, JSON.stringify(template));
+    const template: PassengerFormTemplate = editingPassenger
+      ? {
+        school_id: "",
+        trip_id: "",
+        shift_id: "",
+        isAdultCompanion: false,
+        hasSpecialPrice: false,
+        specialPrice: "",
+        numInstallments: "8",
+        installments: Array.from({ length: 8 }, () => 0)
+      }
+      : {
+        school_id: form.school_id,
+        trip_id: form.trip_id,
+        shift_id: form.shift_id,
+        isAdultCompanion: form.isAdultCompanion,
+        hasSpecialPrice: form.hasSpecialPrice,
+        specialPrice: form.specialPrice,
+        numInstallments: String(count),
+        installments: finalInstallments
+      };
+    if (!editingPassenger) {
+      sessionStorage.setItem(PASSENGER_FORM_TEMPLATE_KEY, JSON.stringify(template));
+    }
 
+    setEditingPassenger(null);
     setEditingId(null);
     setForm(mergeFormWithTemplate(template));
-    setInstallments(finalInstallments);
+    setInstallments(template.installments);
   };
 
   const startEdit = (item: PassengerItem) => {
     setEditingId(item.id);
+    setEditingPassenger(item);
+    setSuccess(null);
     setForm({
       passengerName: item.passengerName,
       passengerLastName: item.passengerLastName,

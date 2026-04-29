@@ -189,16 +189,30 @@ class PassengerController extends Controller
 
     public function update(Request $request, Passenger $passenger)
     {
+        $responsible = $request->input('responsible', []);
+        if (is_array($responsible)) {
+            foreach (['email', 'address', 'city'] as $field) {
+                if (array_key_exists($field, $responsible) && trim((string) $responsible[$field]) === '') {
+                    $responsible[$field] = null;
+                }
+            }
+            $request->merge(['responsible' => $responsible]);
+        }
+
         $data = $request->validate([
             'trip_id' => ['sometimes', 'integer', 'exists:trips,id'],
             'school_id' => ['sometimes', 'integer', 'exists:schools,id'],
-            'grade_id' => ['sometimes', 'integer', 'exists:grades,id'],
+            'grade_id' => ['nullable', 'integer', 'exists:grades,id'],
             'shift_id' => ['sometimes', 'integer', 'exists:shifts,id'],
             'guardian_id' => ['sometimes', 'integer', 'exists:guardians,id'],
             'passenger_type_id' => ['sometimes', 'integer', 'exists:passenger_types,id'],
             'full_name' => ['sometimes', 'string', 'max:255'],
+            'passenger_name' => ['sometimes', 'string', 'max:255'],
+            'passenger_last_name' => ['sometimes', 'string', 'max:255'],
             'dni' => ['sometimes', 'string', 'max:50'],
+            'passenger_dni' => ['sometimes', 'string', 'max:50'],
             'birthdate' => ['nullable', 'date'],
+            'passenger_birth_date' => ['nullable', 'date'],
             'sex' => ['nullable', 'string', 'max:50'],
             'address' => ['nullable', 'string', 'max:255'],
             'locality' => ['nullable', 'string', 'max:255'],
@@ -210,12 +224,51 @@ class PassengerController extends Controller
             'num_installments' => ['sometimes', 'integer', 'min:1', 'max:24'],
             'installments' => ['sometimes', 'array'],
             'installments.*' => ['nullable', 'numeric', 'min:0'],
+            'responsible' => ['sometimes', 'array'],
+            'responsible.name' => ['nullable', 'string', 'max:255'],
+            'responsible.last_name' => ['nullable', 'string', 'max:255'],
+            'responsible.dni' => ['nullable', 'string', 'max:50'],
+            'responsible.birth_date' => ['nullable', 'date'],
+            'responsible.email' => ['nullable', 'email', 'max:255'],
+            'responsible.phone' => ['nullable', 'string', 'max:100'],
+            'responsible.address' => ['nullable', 'string', 'max:255'],
+            'responsible.city' => ['nullable', 'string', 'max:255'],
         ]);
 
+        if (!array_key_exists('full_name', $data) && (array_key_exists('passenger_name', $data) || array_key_exists('passenger_last_name', $data))) {
+            $fullName = trim((string) (($data['passenger_name'] ?? '') . ' ' . ($data['passenger_last_name'] ?? '')));
+            if ($fullName !== '') {
+                $data['full_name'] = $fullName;
+            }
+        }
+        if (!array_key_exists('dni', $data) && array_key_exists('passenger_dni', $data)) {
+            $data['dni'] = $data['passenger_dni'];
+        }
+        if (!array_key_exists('birthdate', $data) && array_key_exists('passenger_birth_date', $data)) {
+            $data['birthdate'] = $data['passenger_birth_date'];
+        }
+
         $financialPayload = array_intersect_key($data, array_flip(['trip_value', 'num_installments', 'installments']));
-        $passengerData = array_diff_key($data, $financialPayload);
+        $passengerData = array_diff_key($data, $financialPayload, ['responsible' => true, 'passenger_name' => true, 'passenger_last_name' => true, 'passenger_dni' => true, 'passenger_birth_date' => true]);
 
         $passenger->update($passengerData);
+
+        if (array_key_exists('responsible', $data) && is_array($data['responsible'])) {
+            $responsibleData = $data['responsible'];
+            $guardian = $passenger->guardian;
+            if ($guardian) {
+                $fullName = trim((string) (($responsibleData['name'] ?? '') . ' ' . ($responsibleData['last_name'] ?? '')));
+                $guardian->update([
+                    'full_name' => $fullName !== '' ? $fullName : $guardian->full_name,
+                    'dni' => $responsibleData['dni'] ?? $guardian->dni,
+                    'birthdate' => $responsibleData['birth_date'] ?? $guardian->birthdate,
+                    'email' => $responsibleData['email'] ?? null,
+                    'phone' => $responsibleData['phone'] ?? $guardian->phone,
+                    'address' => $responsibleData['address'] ?? null,
+                    'locality' => $responsibleData['city'] ?? null,
+                ]);
+            }
+        }
 
         if ($financialPayload !== []) {
             $this->upsertPassengerFinancials($passenger, $financialPayload, (int) $request->user()->id);

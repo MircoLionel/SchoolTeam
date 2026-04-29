@@ -190,11 +190,22 @@ export interface CreatePassengerPayload {
     address: string;
     city: string;
   };
+  full_name?: string;
+  dni?: string;
+  birthdate?: string;
 }
 
 export async function createPassenger(token: string, payload: CreatePassengerPayload) {
   return apiRequest<unknown>("/passengers", {
     method: "POST",
+    token,
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updatePassenger(token: string, id: number, payload: Partial<CreatePassengerPayload>) {
+  return apiRequest<unknown>(`/passengers/${id}`, {
+    method: "PATCH",
     token,
     body: JSON.stringify(payload)
   });

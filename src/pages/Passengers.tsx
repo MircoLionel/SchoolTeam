@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { createPassenger, deletePassenger, extractCollection, fetchPassengers, fetchSchools, fetchShifts, fetchTrips } from "../services/api";
+import { createPassenger, deletePassenger, extractCollection, fetchPassengers, fetchSchools, fetchShifts, fetchTrips, updatePassenger } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 import { appendPassengerAudit, PassengerItem, readStoredPassengers, saveStoredPassengers } from "../state/passengersStorage";
 
@@ -114,7 +114,9 @@ export function Passengers() {
   const [trips, setTrips] = useState<TripItem[]>([]);
   const [shifts, setShifts] = useState<ShiftItem[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingPassenger, setEditingPassenger] = useState<PassengerItem | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [form, setForm] = useState<PassengerForm>(() => mergeFormWithTemplate(readFormTemplate()));
   const [installments, setInstallments] = useState<number[]>(() => getInstallmentsFromTemplate(readFormTemplate()));
 
@@ -354,15 +356,36 @@ export function Passengers() {
       }
     };
 
-    if (editingId) {
-      persist(items.map((item) => (item.id === editingId ? nextItem : item)));
-    } else {
-      if (!token) {
-        setError("No hay sesión activa para guardar el pasajero.");
-        return;
-      }
+    if (!token) {
+      setError("No hay sesión activa para guardar el pasajero.");
+      setSuccess(null);
+      return;
+    }
 
-      try {
+    try {
+      if (editingPassenger) {
+        await updatePassenger(token, editingPassenger.id, {
+          school_id: school.id,
+          trip_id: trip.id,
+          shift_id: shift.id,
+          full_name: `${nextItem.passengerName} ${nextItem.passengerLastName}`.trim(),
+          dni: nextItem.passengerDni,
+          birthdate: nextItem.passengerBirthDate,
+          trip_value: nextItem.trip_value,
+          num_installments: nextItem.num_installments,
+          installments: nextItem.installments,
+          responsible: {
+            name: nextItem.responsible.name,
+            last_name: nextItem.responsible.lastName,
+            dni: nextItem.responsible.dni,
+            birth_date: nextItem.responsible.birthDate,
+            email: nextItem.responsible.email,
+            phone: nextItem.responsible.phone,
+            address: nextItem.responsible.address,
+            city: nextItem.responsible.city,
+          },
+        });
+      } else {
         await createPassenger(token, {
           school_id: school.id,
           trip_id: trip.id,
@@ -387,45 +410,62 @@ export function Passengers() {
             city: nextItem.responsible.city,
           },
         });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "No se pudo guardar el pasajero.");
-        return;
       }
-
       await loadPassengers({ schools, trips, shifts }, token);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo guardar el pasajero.");
+      setSuccess(null);
+      return;
     }
 
     setError(null);
+    setSuccess(editingPassenger ? "Pasajero actualizado" : "Pasajero guardado correctamente.");
 
     appendPassengerAudit({
       id: Date.now(),
       passengerId: nextItem.id,
       passengerLabel: `${nextItem.passengerName} ${nextItem.passengerLastName}`,
-      action: editingId ? "update" : "create",
+      action: editingPassenger ? "update" : "create",
       actorName: user?.name ?? "Sistema",
       actorRole: user?.role ?? "UNKNOWN",
-      detail: editingId ? "Edición desde Pasajeros" : "Alta de pasajero"
+      detail: editingPassenger ? "Edición desde Pasajeros" : "Alta de pasajero"
     });
 
-    const template: PassengerFormTemplate = {
-      school_id: form.school_id,
-      trip_id: form.trip_id,
-      shift_id: form.shift_id,
-      isAdultCompanion: form.isAdultCompanion,
-      hasSpecialPrice: form.hasSpecialPrice,
-      specialPrice: form.specialPrice,
-      numInstallments: String(count),
-      installments: finalInstallments
-    };
-    sessionStorage.setItem(PASSENGER_FORM_TEMPLATE_KEY, JSON.stringify(template));
+    const template: PassengerFormTemplate = editingPassenger
+      ? {
+        school_id: "",
+        trip_id: "",
+        shift_id: "",
+        isAdultCompanion: false,
+        hasSpecialPrice: false,
+        specialPrice: "",
+        numInstallments: "8",
+        installments: Array.from({ length: 8 }, () => 0)
+      }
+      : {
+        school_id: form.school_id,
+        trip_id: form.trip_id,
+        shift_id: form.shift_id,
+        isAdultCompanion: form.isAdultCompanion,
+        hasSpecialPrice: form.hasSpecialPrice,
+        specialPrice: form.specialPrice,
+        numInstallments: String(count),
+        installments: finalInstallments
+      };
+    if (!editingPassenger) {
+      sessionStorage.setItem(PASSENGER_FORM_TEMPLATE_KEY, JSON.stringify(template));
+    }
 
+    setEditingPassenger(null);
     setEditingId(null);
     setForm(mergeFormWithTemplate(template));
-    setInstallments(finalInstallments);
+    setInstallments(template.installments);
   };
 
   const startEdit = (item: PassengerItem) => {
     setEditingId(item.id);
+    setEditingPassenger(item);
+    setSuccess(null);
     setForm({
       passengerName: item.passengerName,
       passengerLastName: item.passengerLastName,
@@ -490,6 +530,8 @@ export function Passengers() {
       </header>
 
       {error ? <p className="form-error">{error}</p> : null}
+
+      {success ? <p className="form-success">{success}</p> : null}
 
       <form className="card form-grid" onSubmit={onSubmit}>
         <div className="form-row">

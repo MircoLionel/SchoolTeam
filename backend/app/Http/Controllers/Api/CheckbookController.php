@@ -7,6 +7,7 @@ use App\Http\Requests\CheckbookPdfRenderRequest;
 use App\Http\Requests\CheckbookRequest;
 use App\Models\AuditLog;
 use App\Models\Checkbook;
+use App\Models\InstallmentPlan;
 use App\Services\CheckbookService;
 use App\Services\PdfService;
 use Illuminate\Http\JsonResponse;
@@ -15,6 +16,63 @@ use Throwable;
 
 class CheckbookController extends Controller
 {
+    public function markPrinted(\Illuminate\Http\Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'passenger_id' => ['required', 'integer', 'exists:passengers,id'],
+            'checkbook_id' => ['nullable', 'integer', 'exists:checkbooks,id'],
+        ]);
+
+        $checkbook = null;
+        if (! empty($validated['checkbook_id'])) {
+            $checkbook = Checkbook::query()
+                ->where('id', (int) $validated['checkbook_id'])
+                ->where('passenger_id', (int) $validated['passenger_id'])
+                ->first();
+        }
+
+        if (! $checkbook) {
+            $checkbook = Checkbook::query()
+                ->where('passenger_id', (int) $validated['passenger_id'])
+                ->latest('id')
+                ->first();
+        }
+
+        if (! $checkbook) {
+            $plan = InstallmentPlan::query()
+                ->where('passenger_id', (int) $validated['passenger_id'])
+                ->latest('id')
+                ->first();
+
+            if (! $plan) {
+                return response()->json(['message' => 'No existe plan para generar/registrar la chequera.'], 422);
+            }
+
+            $checkbook = app(CheckbookService::class)->generate(
+                (int) $validated['passenger_id'],
+                (int) $plan->trip_id,
+                (int) $plan->id
+            );
+        }
+
+        $checkbook->update([
+            'status' => 'PRINTED',
+            'printed_at' => now(),
+            'printed_by_user_id' => (int) $request->user()->id,
+        ]);
+
+        $checkbook->load('printedBy:id,name');
+
+        return response()->json([
+            'id' => $checkbook->id,
+            'passenger_id' => $checkbook->passenger_id,
+            'status' => $checkbook->status,
+            'printed_at' => optional($checkbook->printed_at)->toDateTimeString(),
+            'printed_by' => $checkbook->printedBy?->name,
+            'printed_by_user_id' => $checkbook->printed_by_user_id,
+        ]);
+    }
+
     public function store(CheckbookRequest $request, CheckbookService $service)
     {
         $checkbook = $service->generate(

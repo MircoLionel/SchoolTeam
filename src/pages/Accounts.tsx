@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { extractCollection, fetchPassengerPayments, fetchPassengers, fetchTrips, PassengerPaymentRecord, renderCheckbookPdf } from "../services/api";
+import { extractCollection, fetchPassengerPayments, fetchPassengers, fetchTrips, markCheckbookPrinted, PassengerPaymentRecord, renderCheckbookPdf } from "../services/api";
 import { useAuth } from "../state/AuthContext";
-import { appendPassengerAudit, getPassengerBalance, PassengerItem, readPassengerAudit, saveStoredPassengers } from "../state/passengersStorage";
+import { getPassengerBalance, PassengerItem, saveStoredPassengers } from "../state/passengersStorage";
 
 const currencyFormatter = new Intl.NumberFormat("es-AR", {
   style: "currency",
@@ -21,7 +21,6 @@ export function Accounts() {
   const [query, setQuery] = useState("");
   const [selectedSchool, setSelectedSchool] = useState<string>("all");
   const [selectedTrip, setSelectedTrip] = useState("all");
-  const [printAuditVersion, setPrintAuditVersion] = useState(0);
   const [tripDestinations, setTripDestinations] = useState<Record<number, string>>({});
   const [backendTrips, setBackendTrips] = useState<TripOption[]>([]);
   const [passengers, setPassengers] = useState<PassengerItem[]>([]);
@@ -163,22 +162,6 @@ export function Accounts() {
   }, [backendTrips, passengers, selectedSchool]);
 
 
-  const lastPrintByPassenger = useMemo(() => {
-    const lastPrinted = new Map<number, string>();
-
-    readPassengerAudit().forEach((entry) => {
-      const detail = entry.detail?.toLowerCase() ?? "";
-      if (!detail.includes("imprimi") || !detail.includes("chequera")) return;
-
-      const prev = lastPrinted.get(entry.passengerId);
-      if (!prev || new Date(entry.createdAt).getTime() > new Date(prev).getTime()) {
-        lastPrinted.set(entry.passengerId, entry.createdAt);
-      }
-    });
-
-    return lastPrinted;
-  }, [printAuditVersion]);
-
   const rows = useMemo(() => {
     if (!passengers.length) {
       return [];
@@ -233,10 +216,13 @@ export function Accounts() {
           tripDestination: passenger.trip_destination ?? tripDestinations[passenger.trip_id] ?? "",
           contractNumber: passenger.trip_contract_number ?? String(passenger.trip_id),
           schoolName: passenger.school_name,
-          lastPrintedAt: lastPrintByPassenger.get(passenger.id)
+          checkbookId: Number(passenger.checkbook_id ?? 0) || undefined,
+          checkbookStatus: typeof passenger.checkbook_status === "string" ? passenger.checkbook_status : "",
+          checkbookPrintedAt: typeof passenger.checkbook_printed_at === "string" ? passenger.checkbook_printed_at : "",
+          checkbookPrintedBy: typeof passenger.checkbook_printed_by === "string" ? passenger.checkbook_printed_by : "",
         };
       });
-  }, [lastPrintByPassenger, passengers, query, selectedSchool, selectedTrip, tripDestinations]);
+  }, [passengers, query, selectedSchool, selectedTrip, tripDestinations]);
 
   const printCheckbook = async (row: (typeof rows)[number]) => {
     if (!token) {
@@ -299,17 +285,11 @@ export function Accounts() {
       downloadLink.click();
       document.body.removeChild(downloadLink);
 
-      appendPassengerAudit({
-        id: Date.now(),
-        passengerId: row.id,
-        passengerLabel: row.passenger,
-        action: "payment",
-        actorName: user?.name ?? "Sistema",
-        actorRole: user?.role ?? "UNKNOWN",
-        createdAt: new Date().toISOString(),
-        detail: "Imprimió chequera",
-      });
-      setPrintAuditVersion((current) => current + 1);
+      await markCheckbookPrinted(token, { passenger_id: row.id, checkbook_id: row.checkbookId });
+      const refreshedPassengersPayload = await fetchPassengers(token);
+      const normalizedPassengers = normalizePassengers(refreshedPassengersPayload);
+      setPassengers(normalizedPassengers);
+      saveStoredPassengers(normalizedPassengers);
 
       window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
     } catch (error) {
@@ -430,8 +410,9 @@ export function Accounts() {
                 Estado de cuenta: <strong>{currencyFormatter.format(row.balance)}</strong>
               </span>
               <span>
-                Chequera: <strong>{row.lastPrintedAt ? "Impresa" : "Pendiente"}</strong>
-                {row.lastPrintedAt ? ` · Última impresión: ${new Date(row.lastPrintedAt).toLocaleString("es-AR")}` : ""}
+                Chequera: <strong>{row.checkbookStatus.toUpperCase() === "PRINTED" ? "Impresa" : "Pendiente"}</strong>
+                {row.checkbookPrintedAt ? ` · Última impresión: ${new Date(row.checkbookPrintedAt).toLocaleString("es-AR")}` : ""}
+                {row.checkbookPrintedBy ? ` · Usuario: ${row.checkbookPrintedBy}` : ""}
               </span>
             </div>
 

@@ -35,6 +35,10 @@ export interface PassengerItem {
   last_modified_by?: string;
   last_modified_at?: string;
   last_modified_action?: "create" | "update" | "payment" | "price_update" | "delete";
+  checkbook_id?: number;
+  checkbook_status?: string | null;
+  checkbook_printed_at?: string | null;
+  checkbook_printed_by?: string | null;
 }
 
 export const PASSENGERS_STORAGE_KEY = "schoolteam.passengers.with-responsible";

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Guardian;
 use App\Models\Installment;
 use App\Models\InstallmentPlan;
+use App\Models\Checkbook;
 use App\Models\Passenger;
 use App\Models\PassengerType;
 use App\Models\Payment;
@@ -328,6 +329,12 @@ class PassengerController extends Controller
             $plan?->updated_at ? strtotime((string) $plan->updated_at) : 0
         );
 
+        $latestCheckbook = Checkbook::query()
+            ->with('printedBy:id,name')
+            ->where('passenger_id', $passenger->id)
+            ->latest('id')
+            ->first();
+
         return array_merge($passenger->toArray(), [
             'trip_value' => $total,
             'num_installments' => (int) ($plan?->count ?? count($installments)),
@@ -337,6 +344,10 @@ class PassengerController extends Controller
             'remaining_amount' => max(0, $total - $paid),
             'last_modified_by' => $passenger->updated_by ?? null,
             'last_modified_at' => $lastModifiedAt > 0 ? date('Y-m-d H:i:s', $lastModifiedAt) : null,
+            'checkbook_id' => $latestCheckbook?->id,
+            'checkbook_status' => $latestCheckbook?->status,
+            'checkbook_printed_at' => $latestCheckbook?->printed_at?->toDateTimeString(),
+            'checkbook_printed_by' => $latestCheckbook?->printedBy?->name,
         ]);
     }
 

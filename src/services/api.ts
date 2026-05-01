@@ -524,6 +524,24 @@ export async function renderCheckbookPdf(token: string, payload: CheckbookPdfPay
   return response.blob();
 }
 
+export async function markCheckbookPrinted(
+  token: string,
+  payload: { passenger_id: number; checkbook_id?: number }
+) {
+  return apiRequest<{
+    id: number;
+    passenger_id: number;
+    status: string;
+    printed_at: string | null;
+    printed_by: string | null;
+    printed_by_user_id: number | null;
+  }>("/checkbooks/mark-printed", {
+    method: "POST",
+    token,
+    body: JSON.stringify(payload),
+  });
+}
+
 export function extractCount(payload: unknown): number | null {
   if (!payload) {
     return null;

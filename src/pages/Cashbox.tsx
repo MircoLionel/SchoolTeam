@@ -43,6 +43,11 @@ export function Cashbox() {
     cashBox: "CASH" as "CASH" | "BANK",
   });
 
+  const lastResetAt = useMemo(() => {
+    const resetEntry = readCashboxAudit().find((entry) => entry.action === "reset_cashbox");
+    return resetEntry?.createdAt ?? null;
+  }, [audit]);
+
   const loadMovements = async () => {
     if (!token) return;
     const data = await fetchCashMovements(token);
@@ -60,8 +65,13 @@ export function Cashbox() {
       .catch(() => setUsers([]));
   }, [token]);
 
+  const activePeriodMovements = useMemo(() => {
+    if (!lastResetAt) return movements;
+    return movements.filter((movement) => movement.date >= lastResetAt);
+  }, [lastResetAt, movements]);
+
   const filteredMovements = useMemo(() => {
-    return movements.filter((movement) => {
+    return activePeriodMovements.filter((movement) => {
       const movementDate = movement.date?.slice(0, 10);
       if (dateFrom && movementDate < dateFrom) return false;
       if (dateTo && movementDate > dateTo) return false;
@@ -69,21 +79,22 @@ export function Cashbox() {
       const resolvedBox = movement.cash_box ?? (movement.method === "CASH" ? "CASH" : "BANK");
       return resolvedBox === boxFilter;
     });
-  }, [boxFilter, dateFrom, dateTo, movements]);
+  }, [activePeriodMovements, boxFilter, dateFrom, dateTo]);
 
   const incomesCash = useMemo(
-    () => filteredMovements
+    () => activePeriodMovements
       .filter((m) => m.type === "INCOME" && (m.cash_box === "CASH" || (!m.cash_box && m.method === "CASH")))
       .reduce((acc, m) => acc + m.amount, 0),
-    [filteredMovements]
+    [activePeriodMovements]
   );
   const incomesBank = useMemo(
-    () => filteredMovements
+    () => activePeriodMovements
       .filter((m) => m.type === "INCOME" && (m.cash_box === "BANK" || (!m.cash_box && m.method === "TRANSFER")))
       .reduce((acc, m) => acc + m.amount, 0),
-    [filteredMovements]
+    [activePeriodMovements]
   );
-  const expenses = useMemo(() => filteredMovements.filter((m) => m.type === "EXPENSE"), [filteredMovements]);
+  const expenses = useMemo(() => activePeriodMovements.filter((m) => m.type === "EXPENSE"), [activePeriodMovements]);
+  const visibleExpenses = useMemo(() => filteredMovements.filter((m) => m.type === "EXPENSE"), [filteredMovements]);
   const expensesCash = useMemo(
     () => expenses
       .filter((m) => m.cash_box === "CASH" || !m.cash_box)
@@ -160,7 +171,7 @@ export function Cashbox() {
 
     if (!token) return;
     await resetCashboxRecords(token);
-    recordAudit("reset_cashbox", "Reseteó caja y borró movimientos");
+    recordAudit("reset_cashbox", "Reseteó caja a 0 e inició un nuevo período");
     await loadMovements();
     window.alert("Caja reseteada.");
   };
@@ -251,6 +262,54 @@ export function Cashbox() {
     await loadMovements();
   };
 
+  const exportCashboxCsv = () => {
+    const exportedAt = new Date().toISOString();
+    const lines: string[] = [];
+    const pushRow = (row: Array<string | number>) => {
+      lines.push(row.map((value) => `"${String(value).replace(/"/g, "\"\"")}"`).join(","));
+    };
+
+    pushRow(["seccion", "dato", "valor"]);
+    pushRow(["resumen", "fecha_hora_exportacion", exportedAt]);
+    pushRow(["resumen", "caja_efectivo", cashBalance]);
+    pushRow(["resumen", "caja_banco", bankBalance]);
+    pushRow(["resumen", "total_caja", balance]);
+    pushRow(["resumen", "ingresos_totales", incomesCash + incomesBank]);
+    pushRow(["resumen", "egresos_totales", totalEgresos]);
+    pushRow(["resumen", "saldo_final", balance]);
+    pushRow(["resumen", "periodo_desde_ultimo_reseteo", lastResetAt ?? "sin_reseteo"]);
+    lines.push("");
+    pushRow(["distribucion_egresos", "categoria", "monto"]);
+    categoriesWithAmount.forEach((category) => {
+      if (category.amount > 0) pushRow(["distribucion_egresos", category.label, category.amount]);
+    });
+    lines.push("");
+    pushRow(["movimientos", "fecha", "tipo", "caja", "categoria", "detalle", "monto", "usuario"]);
+    activePeriodMovements.forEach((movement) => {
+      const resolvedBox = movement.cash_box ?? (movement.method === "CASH" ? "CASH" : "BANK");
+      pushRow([
+        "movimientos",
+        movement.date,
+        movement.type,
+        resolvedBox,
+        movement.category_name ?? "",
+        movement.detail ?? "",
+        movement.amount,
+        movement.user_name ?? "",
+      ]);
+    });
+
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `caja_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const loadReport = async () => {
     if (!token) return;
     const rows = await fetchPaymentsReport(token, {
@@ -291,6 +350,9 @@ export function Cashbox() {
         </span>
         <button type="button" className="btn btn-danger" onClick={onResetCashbox}>
           Resetear caja a 0
+        </button>
+        <button type="button" className="btn" onClick={exportCashboxCsv}>
+          Exportar caja CSV
         </button>
       </header>
 
@@ -350,7 +412,7 @@ export function Cashbox() {
         </div>
 
         <div className="card cashbox-summary">
-          <h3>Movimientos del mes</h3>
+          <h3>Movimientos desde último reseteo</h3>
           <div className="cashbox-row">
             <span>Caja efectivo</span>
             <strong>{formatCurrency(cashBalance)}</strong>
@@ -471,11 +533,11 @@ export function Cashbox() {
           <span>Importe</span>
           <span>Acción</span>
         </div>
-        {expenses.length === 0 ? (
+        {visibleExpenses.length === 0 ? (
           <div className="table-row table-row-expenses">
             <span>Sin gastos registrados</span><span>-</span><span>-</span><span>-</span><span>-</span>
           </div>
-        ) : expenses.slice(0, 20).map((expense) => (
+        ) : visibleExpenses.slice(0, 20).map((expense) => (
           <div key={expense.id} className="table-row table-row-expenses">
             <span>{expense.detail ?? "Sin detalle"}</span>
             <span>{expense.category_name ?? "Sin categoría"}</span>

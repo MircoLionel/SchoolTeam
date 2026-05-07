@@ -88,6 +88,10 @@ export function Accounts() {
         last_modified_by: String(record.last_modified_by ?? record.created_by ?? "Sistema"),
         last_modified_at: String(record.last_modified_at ?? record.created_at ?? new Date().toISOString()),
         last_modified_action: (record.last_modified_action as PassengerItem["last_modified_action"]) ?? "create",
+        checkbook_id: typeof record.checkbook_id === "number" ? record.checkbook_id : Number(record.checkbook_id ?? 0) || undefined,
+        checkbook_status: typeof record.checkbook_status === "string" ? record.checkbook_status : null,
+        checkbook_printed_at: typeof record.checkbook_printed_at === "string" ? record.checkbook_printed_at : null,
+        checkbook_printed_by: typeof record.checkbook_printed_by === "string" ? record.checkbook_printed_by : null,
       };
     });
   };

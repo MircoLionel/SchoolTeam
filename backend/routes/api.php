@@ -39,6 +39,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/checkbooks', [\App\Http\Controllers\Api\CheckbookController::class, 'store']);
     Route::post('/checkbooks/render-pdf', [\App\Http\Controllers\Api\CheckbookController::class, 'renderPdf']);
     Route::post('/checkbooks/mark-printed', [\App\Http\Controllers\Api\CheckbookController::class, 'markPrinted']);
+    Route::post('/checkbooks/mark-printed-bulk', [\App\Http\Controllers\Api\CheckbookController::class, 'markPrintedBulk']);
     Route::get('/checkbooks/{checkbook}/pdf', [\App\Http\Controllers\Api\CheckbookController::class, 'downloadPdf']);
 
     Route::post('/coupons/scan', [CouponController::class, 'scan']);

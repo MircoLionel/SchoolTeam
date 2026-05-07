@@ -542,6 +542,28 @@ export async function markCheckbookPrinted(
   });
 }
 
+
+
+export async function markCheckbooksPrintedBulk(
+  token: string,
+  payload: { passenger_ids: number[] }
+) {
+  return apiRequest<{
+    updated: number;
+    records: Array<{
+      id: number;
+      passenger_id: number;
+      status: string;
+      printed_at: string | null;
+      printed_by: string | null;
+      printed_by_user_id: number | null;
+    }>;
+  }>("/checkbooks/mark-printed-bulk", {
+    method: "POST",
+    token,
+    body: JSON.stringify(payload),
+  });
+}
 export function extractCount(payload: unknown): number | null {
   if (!payload) {
     return null;

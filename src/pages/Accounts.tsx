@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { extractCollection, fetchPassengerPayments, fetchPassengers, fetchTrips, markCheckbookPrinted, markCheckbooksPrintedBulk, PassengerPaymentRecord, renderCheckbookPdf } from "../services/api";
+import { deletePayment, extractCollection, fetchPassengerPayments, fetchPassengers, fetchTrips, markCheckbookPrinted, markCheckbooksPrintedBulk, PassengerPaymentRecord, renderCheckbookPdf } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 import { getPassengerBalance, PassengerItem, saveStoredPassengers } from "../state/passengersStorage";
 
@@ -29,6 +29,8 @@ export function Accounts() {
   const [paymentHistory, setPaymentHistory] = useState<PassengerPaymentRecord[]>([]);
   const [paymentsLoading, setPaymentsLoading] = useState(false);
   const [paymentsError, setPaymentsError] = useState<string | null>(null);
+  const [paymentsSuccess, setPaymentsSuccess] = useState<string | null>(null);
+  const [deletingPaymentId, setDeletingPaymentId] = useState<number | null>(null);
   const [selectedPassengerIds, setSelectedPassengerIds] = useState<number[]>([]);
 
   const normalizePassengers = (payload: unknown): PassengerItem[] => {
@@ -378,6 +380,7 @@ export function Accounts() {
       setPaymentsPassengerId(null);
       setPaymentHistory([]);
       setPaymentsError(null);
+      setPaymentsSuccess(null);
       setPaymentsPassengerName("");
       return;
     }
@@ -386,6 +389,7 @@ export function Accounts() {
     setPaymentsPassengerName(row.passenger);
     setPaymentsLoading(true);
     setPaymentsError(null);
+    setPaymentsSuccess(null);
 
     try {
       const records = await fetchPassengerPayments(token, row.id);
@@ -396,6 +400,40 @@ export function Accounts() {
       setPaymentHistory([]);
     } finally {
       setPaymentsLoading(false);
+    }
+  };
+
+  const removePayment = async (paymentId: number) => {
+    if (!token || paymentsPassengerId === null) {
+      setPaymentsError("No hay sesión activa para anular el pago.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "¿Seguro que querés eliminar este pago? Esta acción impactará en el estado de cuenta y caja."
+    );
+    if (!confirmed) return;
+
+    setDeletingPaymentId(paymentId);
+    setPaymentsError(null);
+    setPaymentsSuccess(null);
+
+    try {
+      const result = await deletePayment(token, paymentId);
+      const [records, passengersPayload] = await Promise.all([
+        fetchPassengerPayments(token, paymentsPassengerId),
+        fetchPassengers(token),
+      ]);
+      const normalizedPassengers = normalizePassengers(passengersPayload);
+      setPaymentHistory(records);
+      setPassengers(normalizedPassengers);
+      saveStoredPassengers(normalizedPassengers);
+      setPaymentsSuccess(result.message || "Pago anulado correctamente.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo anular el pago.";
+      setPaymentsError(message);
+    } finally {
+      setDeletingPaymentId(null);
     }
   };
 
@@ -520,23 +558,34 @@ export function Accounts() {
                 <h4>Historial de pagos · {paymentsPassengerName}</h4>
                 {paymentsLoading ? <p>Cargando pagos...</p> : null}
                 {paymentsError ? <p className="badge badge-negative">{paymentsError}</p> : null}
+                {paymentsSuccess ? <p className="badge badge-positive">{paymentsSuccess}</p> : null}
 
                 {!paymentsLoading && !paymentsError ? (
                   <>
-                    <div className="table-row header">
-                      <span>Fecha de cobro</span><span>Medio de pago</span><span>Monto pagado</span><span>Usuario</span><span>Observación / detalle</span>
+                    <div className="table-row account-payment-row header">
+                      <span>Fecha de cobro</span><span>Medio de pago</span><span>Monto pagado</span><span>Usuario</span><span>Observación / detalle</span><span>Acciones</span>
                     </div>
                     {paymentHistory.length === 0 ? (
-                      <div className="table-row">
-                        <span>Sin pagos</span><span>-</span><span>-</span><span>-</span><span>-</span>
+                      <div className="table-row account-payment-row">
+                        <span>Sin pagos</span><span>-</span><span>-</span><span>-</span><span>-</span><span>-</span>
                       </div>
                     ) : paymentHistory.map((payment) => (
-                      <div key={payment.id} className="table-row">
+                      <div key={payment.id} className="table-row account-payment-row">
                         <span>{formatPaymentDate(payment.payment_date)}</span>
                         <span>{paymentMethodLabel(payment)}</span>
                         <span>{currencyFormatter.format(payment.amount)}</span>
                         <span>{payment.user_name}</span>
                         <span>{payment.detail?.trim() || "-"}</span>
+                        <span>
+                          <button
+                            type="button"
+                            className="btn"
+                            disabled={deletingPaymentId !== null}
+                            onClick={() => removePayment(payment.id)}
+                          >
+                            {deletingPaymentId === payment.id ? "Anulando..." : "Eliminar pago"}
+                          </button>
+                        </span>
                       </div>
                     ))}
                   </>

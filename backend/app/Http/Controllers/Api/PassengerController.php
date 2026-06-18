@@ -322,6 +322,7 @@ class PassengerController extends Controller
         $paid = (float) Payment::query()
             ->where('passenger_id', $passenger->id)
             ->where('trip_id', $passenger->trip_id)
+            ->where('status', 'POSTED')
             ->sum('amount_total');
 
         $lastModifiedAt = max(

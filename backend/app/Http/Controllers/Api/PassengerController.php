@@ -22,15 +22,55 @@ class PassengerController extends Controller
 {
     public function index(Request $request)
     {
+        $data = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'search' => ['nullable', 'string', 'max:255'],
+            'school_id' => ['nullable', 'integer', 'exists:schools,id'],
+            'trip_id' => ['nullable', 'integer', 'exists:trips,id'],
+        ]);
+
         $query = Passenger::query()->with(['trip.latestBudget', 'school', 'grade', 'shift', 'guardian', 'passenger_type']);
+        $this->applyPassengerFilters($query, $data);
 
-        if ($request->filled('trip_id')) {
-            $query->where('trip_id', $request->integer('trip_id'));
-        }
+        $perPage = (int) ($data['per_page'] ?? 50);
+        $page = (int) ($data['page'] ?? 1);
+        $paginator = $query->latest('id')->paginate($perPage, ['*'], 'page', $page);
 
-        $passengers = $query->latest('id')->get();
+        return response()->json([
+            'data' => $this->serializePassengers($paginator->getCollection()),
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+                'last_page' => $paginator->lastPage(),
+                'has_more' => $paginator->hasMorePages(),
+            ],
+        ]);
+    }
 
-        return response()->json($this->serializePassengers($passengers));
+    public function search(Request $request)
+    {
+        $data = $request->validate([
+            'q' => ['nullable', 'string', 'max:255'],
+            'school_id' => ['nullable', 'integer', 'exists:schools,id'],
+            'trip_id' => ['nullable', 'integer', 'exists:trips,id'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
+
+        $query = Passenger::query()->with(['school:id,name', 'trip:id,group_name,destination']);
+        $this->applyPassengerFilters($query, [
+            'search' => $data['q'] ?? null,
+            'school_id' => $data['school_id'] ?? null,
+            'trip_id' => $data['trip_id'] ?? null,
+        ]);
+
+        $passengers = $query
+            ->orderBy('full_name')
+            ->limit((int) ($data['limit'] ?? 20))
+            ->get(['id', 'full_name', 'dni', 'school_id', 'trip_id']);
+
+        return response()->json($passengers->map(fn (Passenger $passenger) => $this->serializePassengerSearchResult($passenger))->values());
     }
 
     public function store(Request $request)
@@ -293,6 +333,57 @@ class PassengerController extends Controller
     private function serializePassengers(Collection $passengers): array
     {
         return $passengers->map(fn (Passenger $passenger) => $this->serializePassenger($passenger))->all();
+    }
+
+    private function applyPassengerFilters($query, array $filters): void
+    {
+        if (! empty($filters['school_id'])) {
+            $query->where('school_id', (int) $filters['school_id']);
+        }
+
+        if (! empty($filters['trip_id'])) {
+            $query->where('trip_id', (int) $filters['trip_id']);
+        }
+
+        $search = trim((string) ($filters['search'] ?? ''));
+        if ($search !== '') {
+            $query->where(function ($query) use ($search) {
+                $query->where('full_name', 'like', "%{$search}%")
+                    ->orWhere('dni', 'like', "%{$search}%");
+            });
+        }
+    }
+
+    private function serializePassengerSearchResult(Passenger $passenger): array
+    {
+        $total = (float) (InstallmentPlan::query()
+            ->where('passenger_id', $passenger->id)
+            ->where('trip_id', $passenger->trip_id)
+            ->latest('id')
+            ->value('total') ?? 0);
+
+        $paid = (float) Payment::query()
+            ->where('passenger_id', $passenger->id)
+            ->where('trip_id', $passenger->trip_id)
+            ->where('status', 'POSTED')
+            ->sum('amount_total');
+
+        return [
+            'id' => $passenger->id,
+            'full_name' => $passenger->full_name,
+            'dni' => $passenger->dni,
+            'school' => $passenger->school ? [
+                'id' => $passenger->school->id,
+                'name' => $passenger->school->name,
+            ] : null,
+            'trip' => $passenger->trip ? [
+                'id' => $passenger->trip->id,
+                'group_name' => $passenger->trip->group_name,
+                'destination' => $passenger->trip->destination,
+            ] : null,
+            'paid_amount' => $paid,
+            'balance' => $paid - $total,
+        ];
     }
 
     /**

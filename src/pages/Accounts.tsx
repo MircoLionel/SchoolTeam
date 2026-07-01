@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { deletePayment, extractCollection, fetchPassengerPayments, fetchPassengers, fetchTrips, markCheckbookPrinted, markCheckbooksPrintedBulk, PassengerPaymentRecord, renderCheckbookPdf } from "../services/api";
+import { deletePayment, extractCollection, fetchPassengerPayments, fetchPassengers, fetchSchools, fetchTrips, markCheckbookPrinted, markCheckbooksPrintedBulk, PassengerPaymentRecord, renderCheckbookPdf } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 import { getPassengerBalance, PassengerItem, saveStoredPassengers } from "../state/passengersStorage";
 
@@ -23,6 +23,7 @@ export function Accounts() {
   const [selectedTrip, setSelectedTrip] = useState("all");
   const [tripDestinations, setTripDestinations] = useState<Record<number, string>>({});
   const [backendTrips, setBackendTrips] = useState<TripOption[]>([]);
+  const [backendSchools, setBackendSchools] = useState<Array<{ id: number; name: string }>>([]);
   const [passengers, setPassengers] = useState<PassengerItem[]>([]);
   const [paymentsPassengerId, setPaymentsPassengerId] = useState<number | null>(null);
   const [paymentsPassengerName, setPaymentsPassengerName] = useState("");
@@ -102,12 +103,22 @@ export function Accounts() {
   useEffect(() => {
     if (!token) return;
 
-    Promise.all([fetchTrips(token), fetchPassengers(token)])
-      .then(([tripsPayload, passengersPayload]) => {
+    Promise.all([
+      fetchTrips(token),
+      fetchSchools(token),
+      fetchPassengers(token, {
+        search: query.trim() || undefined,
+        school_id: selectedSchool === "all" ? undefined : backendSchools.find((school) => school.name === selectedSchool)?.id,
+        trip_id: selectedTrip === "all" || selectedTrip === "" ? undefined : Number(selectedTrip),
+        per_page: 100,
+      })
+    ])
+      .then(([tripsPayload, schoolsPayload, passengersPayload]) => {
         const records = extractCollection<Record<string, unknown>>(tripsPayload);
         const normalizedPassengers = normalizePassengers(passengersPayload);
         setPassengers(normalizedPassengers);
         saveStoredPassengers(normalizedPassengers);
+        setBackendSchools((schoolsPayload ?? []).map((school) => ({ id: school.id, name: school.name })));
 
         const map: Record<number, string> = {};
         const options: TripOption[] = [];
@@ -141,14 +152,14 @@ export function Accounts() {
       .catch(() => {
         setPassengers([]);
       });
-  }, [token]);
+  }, [token, query, selectedSchool, selectedTrip]);
 
   const schoolTabs = useMemo(() => {
-    const schools = Array.from(new Set(passengers.map((passenger) => passenger.school_name))).sort((a, b) =>
+    const schools = (backendSchools.length > 0 ? backendSchools.map((school) => school.name) : Array.from(new Set(passengers.map((passenger) => passenger.school_name)))).sort((a, b) =>
       a.localeCompare(b, "es")
     );
     return ["all", ...schools];
-  }, [passengers]);
+  }, [backendSchools, passengers]);
 
   const tripOptions = useMemo(() => {
     if (selectedSchool === "all") {

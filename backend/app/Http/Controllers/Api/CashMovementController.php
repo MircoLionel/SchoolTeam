@@ -165,20 +165,6 @@ class CashMovementController extends Controller
         );
     }
 
-    public function categories()
-    {
-        return response()->json(
-            CashCategory::query()
-                ->orderBy('name')
-                ->get(['id', 'name'])
-                ->map(fn (CashCategory $category) => [
-                    'id' => $category->id,
-                    'name' => $category->name,
-                ])
-                ->values()
-        );
-    }
-
     public function storeExpense(Request $request)
     {
         $data = $request->validate([

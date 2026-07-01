@@ -434,15 +434,6 @@ export function Cashbox() {
           </select>
         </label>
         <label className="field">
-          <span>Categoría de egreso</span>
-          <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
-            <option value="all">Todas las categorías</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>{category.label}</option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
           <span>Caja / medio</span>
           <select value={boxFilter} onChange={(e) => updateBoxFilter(e.target.value as "ALL" | "CASH" | "BANK")}>
             <option value="ALL">Todas</option>

@@ -96,9 +96,9 @@ export function TripPassengers() {
     if (!token) return;
     setIsLoading(true);
     try {
-      const response = await fetchPassengers(token);
+      const response = await fetchPassengers(token, { trip_id: tripId || undefined, per_page: 100 });
       const normalized = normalizePassengers(response);
-      setItems(normalized.filter((item) => item.trip_id === tripId));
+      setItems(normalized.filter((item) => !tripId || item.trip_id === tripId));
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudieron cargar los pasajeros.");

@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuditController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CouponController;
 use App\Http\Controllers\Api\CashMovementController;
+use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\InstallmentPlanController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ReportController;
@@ -30,7 +31,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('budgets', \App\Http\Controllers\Api\BudgetController::class);
     Route::apiResource('passenger-types', \App\Http\Controllers\Api\PassengerTypeController::class);
     Route::apiResource('guardians', \App\Http\Controllers\Api\GuardianController::class);
+    Route::get('/passengers/search', [\App\Http\Controllers\Api\PassengerController::class, 'search']);
     Route::apiResource('passengers', \App\Http\Controllers\Api\PassengerController::class);
+    Route::get('/dashboard/summary', [DashboardController::class, 'summary']);
 
     Route::post('/installment-plans', [InstallmentPlanController::class, 'store']);
     Route::get('/installment-plans/{plan}', [InstallmentPlanController::class, 'show']);

@@ -9,12 +9,47 @@ use Illuminate\Http\Request;
 
 class CashMovementController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $movements = CashMovement::query()
-            ->with('category')
-            ->latest('id')
-            ->get()
+        $data = $request->validate([
+            'category_id' => ['nullable', 'integer', 'exists:cash_categories,id'],
+            'cash_box' => ['nullable', 'in:CASH,BANK,ALL'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date'],
+        ]);
+
+        $query = CashMovement::query()->with('category');
+
+        if (! empty($data['category_id'])) {
+            $query->where('category_id', (int) $data['category_id']);
+        }
+
+        if (($data['cash_box'] ?? 'ALL') !== 'ALL') {
+            $cashBox = $data['cash_box'];
+            $query->where(function ($query) use ($cashBox) {
+                $query->where('cash_box', $cashBox);
+
+                if ($cashBox === 'CASH') {
+                    $query->orWhere(function ($query) {
+                        $query->whereNull('cash_box')
+                            ->where(function ($query) {
+                                $query->where('method', 'CASH')
+                                    ->orWhereNull('method');
+                            });
+                    });
+                }
+            });
+        }
+
+        if (! empty($data['date_from'])) {
+            $query->whereDate('date', '>=', $data['date_from']);
+        }
+
+        if (! empty($data['date_to'])) {
+            $query->whereDate('date', '<=', $data['date_to']);
+        }
+
+        $movements = $query->latest('id')->get()
             ->map(fn (CashMovement $movement) => [
                 'id' => $movement->id,
                 'date' => optional($movement->date)->toDateString(),
@@ -30,6 +65,20 @@ class CashMovementController extends Controller
             ]);
 
         return response()->json($movements);
+    }
+
+    public function categories()
+    {
+        return response()->json(
+            CashCategory::query()
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->map(fn (CashCategory $category) => [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                ])
+                ->values()
+        );
     }
 
     public function storeExpense(Request $request)

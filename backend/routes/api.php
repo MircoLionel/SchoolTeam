@@ -55,6 +55,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/accounts/{passenger}', [ReportController::class, 'passengerAccount']);
 
     Route::get('/cash-movements', [CashMovementController::class, 'index']);
+    Route::get('/cash-categories', [CashMovementController::class, 'categories']);
     Route::post('/cash-movements/expense', [CashMovementController::class, 'storeExpense']);
     Route::delete('/cash-movements/{cashMovement}', [CashMovementController::class, 'destroy']);
     Route::delete('/cash-movements', [CashMovementController::class, 'reset']);

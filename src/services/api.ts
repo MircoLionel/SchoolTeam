@@ -375,6 +375,11 @@ export interface CashMovementRecord {
   created_at?: string;
 }
 
+export interface CashCategoryRecord {
+  id: number;
+  name: string;
+}
+
 export interface PassengerPaymentRecord {
   id: number;
   payment_date: string;
@@ -448,8 +453,21 @@ export async function deletePayment(token: string, paymentId: number) {
   });
 }
 
-export async function fetchCashMovements(token: string) {
-  return apiRequest<CashMovementRecord[]>("/cash-movements", { token });
+export async function fetchCashMovements(
+  token: string,
+  params: { category_id?: number; cash_box?: "CASH" | "BANK" | "ALL"; date_from?: string; date_to?: string } = {}
+) {
+  const query = new URLSearchParams();
+  if (params.category_id) query.set("category_id", String(params.category_id));
+  if (params.cash_box && params.cash_box !== "ALL") query.set("cash_box", params.cash_box);
+  if (params.date_from) query.set("date_from", params.date_from);
+  if (params.date_to) query.set("date_to", params.date_to);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return apiRequest<CashMovementRecord[]>(`/cash-movements${suffix}`, { token });
+}
+
+export async function fetchCashCategories(token: string) {
+  return apiRequest<CashCategoryRecord[]>("/cash-categories", { token });
 }
 
 export async function createCashExpense(

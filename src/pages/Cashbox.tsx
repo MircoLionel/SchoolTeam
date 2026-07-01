@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { createCashExpense, deleteCashExpense, fetchCashMovements, fetchPaymentsReport, fetchUsers, resetCashboxRecords, type CashMovementRecord, type PaymentReportRecord } from "../services/api";
+import { createCashExpense, deleteCashExpense, fetchCashCategories, fetchCashMovements, fetchPaymentsReport, fetchUsers, resetCashboxRecords, type CashMovementRecord, type PaymentReportRecord } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 import { Role } from "../types/auth";
 import {
@@ -27,6 +27,7 @@ export function Cashbox() {
   const [audit, setAudit] = useState(() => readCashboxAudit().slice(0, 12));
   const [movements, setMovements] = useState<CashMovementRecord[]>([]);
   const [boxFilter, setBoxFilter] = useState<"ALL" | "CASH" | "BANK">("ALL");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [reportDateFrom, setReportDateFrom] = useState(() => new Date().toISOString().slice(0, 10));
@@ -50,12 +51,50 @@ export function Cashbox() {
 
   const loadMovements = async () => {
     if (!token) return;
-    const data = await fetchCashMovements(token);
+    const data = await fetchCashMovements(token, {
+      category_id: categoryFilter === "all" ? undefined : Number(categoryFilter),
+      cash_box: boxFilter,
+      date_from: dateFrom || undefined,
+      date_to: dateTo || undefined,
+    });
     setMovements(data);
   };
 
   useEffect(() => {
     loadMovements().catch(() => setMovements([]));
+  }, [token, categoryFilter, boxFilter, dateFrom, dateTo]);
+
+  const loadCategories = async () => {
+    if (!token) return;
+    const backendCategories = await fetchCashCategories(token);
+    setCategories((current) => {
+      const palette = ["#6b7280", "#2563eb", "#16a34a", "#a855f7", "#f97316", "#0891b2"];
+      const merged = backendCategories.map((category, index) => {
+        const existing = current.find((item) => item.id === category.id || item.label === category.name);
+        return {
+          id: category.id,
+          label: category.name,
+          color: existing?.color ?? palette[index % palette.length],
+          createdAt: existing?.createdAt ?? new Date(0).toISOString(),
+          createdBy: existing?.createdBy ?? "Sistema",
+          updatedAt: existing?.updatedAt,
+          updatedBy: existing?.updatedBy,
+        };
+      });
+      const next = merged.length > 0 ? merged : current;
+      saveCashboxCategories(next);
+      setExpenseForm((currentForm) => {
+        const selectedCategory = next.find((category) => category.id === Number(currentForm.categoryId));
+        return selectedCategory || next.length === 0
+          ? currentForm
+          : { ...currentForm, categoryId: String(next[0].id) };
+      });
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    loadCategories().catch(() => undefined);
   }, [token]);
 
   useEffect(() => {
@@ -65,36 +104,20 @@ export function Cashbox() {
       .catch(() => setUsers([]));
   }, [token]);
 
-  const activePeriodMovements = useMemo(() => {
-    if (!lastResetAt) return movements;
-    return movements.filter((movement) => movement.date >= lastResetAt);
-  }, [lastResetAt, movements]);
-
-  const filteredMovements = useMemo(() => {
-    return activePeriodMovements.filter((movement) => {
-      const movementDate = movement.date?.slice(0, 10);
-      if (dateFrom && movementDate < dateFrom) return false;
-      if (dateTo && movementDate > dateTo) return false;
-      if (boxFilter === "ALL") return true;
-      const resolvedBox = movement.cash_box ?? (movement.method === "CASH" ? "CASH" : "BANK");
-      return resolvedBox === boxFilter;
-    });
-  }, [activePeriodMovements, boxFilter, dateFrom, dateTo]);
-
   const incomesCash = useMemo(
-    () => activePeriodMovements
+    () => movements
       .filter((m) => m.type === "INCOME" && (m.cash_box === "CASH" || (!m.cash_box && m.method === "CASH")))
       .reduce((acc, m) => acc + m.amount, 0),
-    [activePeriodMovements]
+    [movements]
   );
   const incomesBank = useMemo(
-    () => activePeriodMovements
+    () => movements
       .filter((m) => m.type === "INCOME" && (m.cash_box === "BANK" || (!m.cash_box && m.method === "TRANSFER")))
       .reduce((acc, m) => acc + m.amount, 0),
-    [activePeriodMovements]
+    [movements]
   );
-  const expenses = useMemo(() => activePeriodMovements.filter((m) => m.type === "EXPENSE"), [activePeriodMovements]);
-  const visibleExpenses = useMemo(() => filteredMovements.filter((m) => m.type === "EXPENSE"), [filteredMovements]);
+  const expenses = useMemo(() => movements.filter((m) => m.type === "EXPENSE"), [movements]);
+  const visibleExpenses = expenses;
   const expensesCash = useMemo(
     () => expenses
       .filter((m) => m.cash_box === "CASH" || !m.cash_box)
@@ -176,6 +199,13 @@ export function Cashbox() {
     window.alert("Caja reseteada.");
   };
 
+  const clearExpenseFilters = () => {
+    setCategoryFilter("all");
+    setBoxFilter("ALL");
+    setDateFrom("");
+    setDateTo("");
+  };
+
   const handleCreateCategory = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const label = newCategory.label.trim();
@@ -253,6 +283,7 @@ export function Cashbox() {
     setExpenseForm((current) => ({ ...current, amount: "", description: "" }));
     recordAudit("add_expense", `Agregó gasto ${formatCurrency(amount)} en "${category.label}" · ${expenseForm.description.trim() || "Sin detalle"}`);
     await loadMovements();
+    await loadCategories();
   };
 
   const handleDeleteExpense = async (expenseId: number) => {
@@ -285,7 +316,7 @@ export function Cashbox() {
     });
     lines.push("");
     pushRow(["movimientos", "fecha", "tipo", "caja", "categoria", "detalle", "monto", "usuario"]);
-    activePeriodMovements.forEach((movement) => {
+    movements.forEach((movement) => {
       const resolvedBox = movement.cash_box ?? (movement.method === "CASH" ? "CASH" : "BANK");
       pushRow([
         "movimientos",
@@ -358,12 +389,21 @@ export function Cashbox() {
 
       <div className="card form-grid">
         <label className="field">
-          <span>Filtro desde (caja)</span>
+          <span>Desde (egresos)</span>
           <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
         </label>
         <label className="field">
-          <span>Filtro hasta (caja)</span>
+          <span>Hasta (egresos)</span>
           <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+        </label>
+        <label className="field">
+          <span>Categoría de egreso</span>
+          <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+            <option value="all">Todas las categorías</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>{category.label}</option>
+            ))}
+          </select>
         </label>
         <label className="field">
           <span>Caja / medio</span>
@@ -373,6 +413,10 @@ export function Cashbox() {
             <option value="BANK">BANCO</option>
           </select>
         </label>
+        <div className="field">
+          <span>Histórico</span>
+          <button type="button" className="btn" onClick={clearExpenseFilters}>Ver todo histórico</button>
+        </div>
       </div>
 
       <div className="card form-grid">
@@ -412,7 +456,7 @@ export function Cashbox() {
         </div>
 
         <div className="card cashbox-summary">
-          <h3>Movimientos desde último reseteo</h3>
+          <h3>Movimientos según filtros</h3>
           <div className="cashbox-row">
             <span>Caja efectivo</span>
             <strong>{formatCurrency(cashBalance)}</strong>
@@ -537,7 +581,7 @@ export function Cashbox() {
           <div className="table-row table-row-expenses">
             <span>Sin gastos registrados</span><span>-</span><span>-</span><span>-</span><span>-</span>
           </div>
-        ) : visibleExpenses.slice(0, 20).map((expense) => (
+        ) : visibleExpenses.map((expense) => (
           <div key={expense.id} className="table-row table-row-expenses">
             <span>{expense.detail ?? "Sin detalle"}</span>
             <span>{expense.category_name ?? "Sin categoría"}</span>

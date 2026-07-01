@@ -16,6 +16,63 @@ use Throwable;
 
 class CheckbookController extends Controller
 {
+
+    public function markPrintedBulk(\Illuminate\Http\Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'passenger_ids' => ['required', 'array', 'min:1'],
+            'passenger_ids.*' => ['integer', 'exists:passengers,id'],
+        ]);
+
+        $records = [];
+        foreach (array_values(array_unique($validated['passenger_ids'])) as $passengerId) {
+            $passengerId = (int) $passengerId;
+
+            $checkbook = Checkbook::query()
+                ->where('passenger_id', $passengerId)
+                ->latest('id')
+                ->first();
+
+            if (! $checkbook) {
+                $plan = InstallmentPlan::query()
+                    ->where('passenger_id', $passengerId)
+                    ->latest('id')
+                    ->first();
+
+                if (! $plan) {
+                    continue;
+                }
+
+                $checkbook = app(CheckbookService::class)->generate(
+                    $passengerId,
+                    (int) $plan->trip_id,
+                    (int) $plan->id
+                );
+            }
+
+            $checkbook->update([
+                'status' => 'PRINTED',
+                'printed_at' => now(),
+                'printed_by_user_id' => (int) $request->user()->id,
+            ]);
+
+            $checkbook->load('printedBy:id,name');
+            $records[] = [
+                'id' => $checkbook->id,
+                'passenger_id' => $checkbook->passenger_id,
+                'status' => $checkbook->status,
+                'printed_at' => optional($checkbook->printed_at)->toDateTimeString(),
+                'printed_by' => $checkbook->printedBy?->name,
+                'printed_by_user_id' => $checkbook->printed_by_user_id,
+            ];
+        }
+
+        return response()->json([
+            'updated' => count($records),
+            'records' => $records,
+        ]);
+    }
+
     public function markPrinted(\Illuminate\Http\Request $request): JsonResponse
     {
         $validated = $request->validate([

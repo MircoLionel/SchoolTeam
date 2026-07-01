@@ -39,6 +39,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/checkbooks', [\App\Http\Controllers\Api\CheckbookController::class, 'store']);
     Route::post('/checkbooks/render-pdf', [\App\Http\Controllers\Api\CheckbookController::class, 'renderPdf']);
     Route::post('/checkbooks/mark-printed', [\App\Http\Controllers\Api\CheckbookController::class, 'markPrinted']);
+    Route::post('/checkbooks/mark-printed-bulk', [\App\Http\Controllers\Api\CheckbookController::class, 'markPrintedBulk']);
     Route::get('/checkbooks/{checkbook}/pdf', [\App\Http\Controllers\Api\CheckbookController::class, 'downloadPdf']);
 
     Route::post('/coupons/scan', [CouponController::class, 'scan']);
@@ -54,6 +55,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/accounts/{passenger}', [ReportController::class, 'passengerAccount']);
 
     Route::get('/cash-movements', [CashMovementController::class, 'index']);
+    Route::get('/cash-categories', [CashMovementController::class, 'categories']);
     Route::post('/cash-movements/expense', [CashMovementController::class, 'storeExpense']);
     Route::delete('/cash-movements/{cashMovement}', [CashMovementController::class, 'destroy']);
     Route::delete('/cash-movements', [CashMovementController::class, 'reset']);

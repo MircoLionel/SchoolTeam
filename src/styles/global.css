@@ -203,6 +203,10 @@ a {
   grid-template-columns: 1.3fr 1.1fr 1.2fr 90px 140px 120px;
 }
 
+.account-payment-row {
+  grid-template-columns: 1fr 1fr 1fr 1fr 1.5fr 140px;
+}
+
 .link {
   background: transparent;
   border: none;

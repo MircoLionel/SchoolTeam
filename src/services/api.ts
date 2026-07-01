@@ -160,8 +160,51 @@ export async function updateBudget(token: string, id: number, payload: Partial<C
   });
 }
 
-export async function fetchPassengers(token: string) {
-  return apiRequest<unknown>("/passengers", { token });
+export interface DashboardSummary {
+  total_trips: number;
+  total_passengers: number;
+  total_audit_events: number;
+}
+
+export interface PassengerSearchRecord {
+  id: number;
+  full_name: string;
+  dni: string;
+  school: { id: number; name: string } | null;
+  trip: { id: number; group_name: string | null; destination: string | null } | null;
+  paid_amount: number;
+  balance: number;
+}
+
+export async function fetchDashboardSummary(token: string) {
+  return apiRequest<DashboardSummary>("/dashboard/summary", { token });
+}
+
+export async function fetchPassengers(
+  token: string,
+  params: { page?: number; per_page?: number; search?: string; school_id?: number; trip_id?: number } = {}
+) {
+  const query = new URLSearchParams();
+  if (params.page) query.set("page", String(params.page));
+  if (params.per_page) query.set("per_page", String(params.per_page));
+  if (params.search) query.set("search", params.search);
+  if (params.school_id) query.set("school_id", String(params.school_id));
+  if (params.trip_id) query.set("trip_id", String(params.trip_id));
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return apiRequest<unknown>(`/passengers${suffix}`, { token });
+}
+
+export async function searchPassengers(
+  token: string,
+  params: { q?: string; school_id?: number; trip_id?: number; limit?: number } = {}
+) {
+  const query = new URLSearchParams();
+  if (params.q) query.set("q", params.q);
+  if (params.school_id) query.set("school_id", String(params.school_id));
+  if (params.trip_id) query.set("trip_id", String(params.trip_id));
+  if (params.limit) query.set("limit", String(params.limit));
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return apiRequest<PassengerSearchRecord[]>(`/passengers/search${suffix}`, { token });
 }
 
 export interface CreatePassengerPayload {
@@ -375,6 +418,38 @@ export interface CashMovementRecord {
   created_at?: string;
 }
 
+export interface CashCategoryRecord {
+  id: number;
+  name: string;
+}
+
+export interface CashMovementSummary {
+  incomes_cash: number;
+  incomes_bank: number;
+  expenses_cash: number;
+  expenses_bank: number;
+  total_incomes: number;
+  total_expenses: number;
+  balance: number;
+  categories: Array<{
+    category_id: number;
+    category_name: string;
+    amount: number;
+  }>;
+}
+
+export interface CashMovementListResponse {
+  data: CashMovementRecord[];
+  meta: {
+    page: number;
+    per_page: number;
+    total: number;
+    has_more: boolean;
+    all: boolean;
+  };
+  summary: CashMovementSummary;
+}
+
 export interface PassengerPaymentRecord {
   id: number;
   payment_date: string;
@@ -448,8 +523,24 @@ export async function deletePayment(token: string, paymentId: number) {
   });
 }
 
-export async function fetchCashMovements(token: string) {
-  return apiRequest<CashMovementRecord[]>("/cash-movements", { token });
+export async function fetchCashMovements(
+  token: string,
+  params: { category_id?: number; cash_box?: "CASH" | "BANK" | "ALL"; date_from?: string; date_to?: string; page?: number; per_page?: number; all?: boolean } = {}
+) {
+  const query = new URLSearchParams();
+  if (params.category_id) query.set("category_id", String(params.category_id));
+  if (params.cash_box && params.cash_box !== "ALL") query.set("cash_box", params.cash_box);
+  if (params.date_from) query.set("date_from", params.date_from);
+  if (params.date_to) query.set("date_to", params.date_to);
+  if (params.page) query.set("page", String(params.page));
+  if (params.per_page) query.set("per_page", String(params.per_page));
+  if (params.all) query.set("all", "1");
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return apiRequest<CashMovementListResponse>(`/cash-movements${suffix}`, { token });
+}
+
+export async function fetchCashCategories(token: string) {
+  return apiRequest<CashCategoryRecord[]>("/cash-categories", { token });
 }
 
 export async function createCashExpense(
@@ -542,6 +633,28 @@ export async function markCheckbookPrinted(
   });
 }
 
+
+
+export async function markCheckbooksPrintedBulk(
+  token: string,
+  payload: { passenger_ids: number[] }
+) {
+  return apiRequest<{
+    updated: number;
+    records: Array<{
+      id: number;
+      passenger_id: number;
+      status: string;
+      printed_at: string | null;
+      printed_by: string | null;
+      printed_by_user_id: number | null;
+    }>;
+  }>("/checkbooks/mark-printed-bulk", {
+    method: "POST",
+    token,
+    body: JSON.stringify(payload),
+  });
+}
 export function extractCount(payload: unknown): number | null {
   if (!payload) {
     return null;

@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { deletePayment, extractCollection, fetchPassengerPayments, fetchPassengers, fetchSchools, PassengerPaymentRecord, registerCouponCollectPayment } from "../services/api";
+import { deletePayment, fetchPassengerPayments, fetchSchools, PassengerPaymentRecord, registerCouponCollectPayment, searchPassengers } from "../services/api";
 import {
   appendPassengerAudit,
   getPassengerBalance,
@@ -19,26 +19,25 @@ interface SchoolFilterItem {
   name: string;
 }
 
-function normalizePassengers(payload: unknown): PassengerItem[] {
-  const records = extractCollection<Record<string, unknown>>(payload);
-  return records.map((record, index) => ({
-    id: Number(record.id ?? Date.now() + index),
-    passengerName: String(record.passenger_name ?? (String(record.full_name ?? "").split(/\s+/)[0] ?? "")),
-    passengerLastName: String(record.passenger_last_name ?? String(record.full_name ?? "").split(/\s+/).slice(1).join(" ")),
-    passengerDni: String(record.passenger_dni ?? record.dni ?? ""),
-    passengerBirthDate: String(record.passenger_birth_date ?? record.birthdate ?? ""),
-    school_id: Number(record.school_id ?? 0),
-    school_name: String((record.school as Record<string, unknown> | undefined)?.name ?? ""),
-    trip_id: Number(record.trip_id ?? 0),
-    trip_label: String((record.trip as Record<string, unknown> | undefined)?.group_name ?? ""),
-    shift_id: Number(record.shift_id ?? 0),
-    shift_name: String((record.shift as Record<string, unknown> | undefined)?.name ?? ""),
+function normalizePassengers(records: Awaited<ReturnType<typeof searchPassengers>>): PassengerItem[] {
+  return records.map((record) => ({
+    id: record.id,
+    passengerName: String(record.full_name ?? "").split(/\s+/)[0] ?? "",
+    passengerLastName: String(record.full_name ?? "").split(/\s+/).slice(1).join(" "),
+    passengerDni: String(record.dni ?? ""),
+    passengerBirthDate: "",
+    school_id: Number(record.school?.id ?? 0),
+    school_name: String(record.school?.name ?? ""),
+    trip_id: Number(record.trip?.id ?? 0),
+    trip_label: String(record.trip?.group_name ?? record.trip?.destination ?? ""),
+    shift_id: 0,
+    shift_name: "",
     isAdultCompanion: false,
     hasSpecialPrice: false,
-    trip_value: Number(record.trip_value ?? 0),
+    trip_value: Math.max(0, Number(record.paid_amount ?? 0) - Number(record.balance ?? 0)),
     paid_amount: Number(record.paid_amount ?? 0),
     num_installments: Number(record.num_installments ?? 1),
-    installments: Array.isArray(record.installments) ? (record.installments as number[]) : [],
+    installments: [],
     responsible: { name: "", lastName: "", dni: "", birthDate: "", email: "", phone: "", address: "", city: "" },
   }));
 }
@@ -59,8 +58,11 @@ export function CouponCollect() {
 
   const loadPassengers = async () => {
     if (!token) return;
-    const payload = await fetchPassengers(token);
-    const records = normalizePassengers(payload);
+    const records = normalizePassengers(await searchPassengers(token, {
+      q: query.trim() || undefined,
+      school_id: selectedSchoolId === "all" ? undefined : Number(selectedSchoolId),
+      limit: 30,
+    }));
     setPassengers(records);
     saveStoredPassengers(records);
   };
@@ -75,18 +77,9 @@ export function CouponCollect() {
         setPassengers([]);
         setSchools([]);
       });
-  }, [token]);
+  }, [token, query, selectedSchoolId]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return passengers.filter((item) => {
-      const schoolMatch = selectedSchoolId === "all" || item.school_id === Number(selectedSchoolId);
-      if (!schoolMatch) return false;
-      if (!q) return true;
-      const fullName = `${item.passengerName} ${item.passengerLastName}`.toLowerCase();
-      return fullName.includes(q) || item.passengerDni.includes(q);
-    });
-  }, [passengers, query, selectedSchoolId]);
+  const filtered = passengers;
 
   const selectedPassenger = useMemo(
     () => passengers.find((item) => item.id === Number(selectedPassengerId)),

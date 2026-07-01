@@ -42,6 +42,7 @@ class PaymentController extends Controller
     {
         $rows = Payment::query()
             ->where('payments.passenger_id', $passengerId)
+            ->where('payments.status', 'POSTED')
             ->join('passengers', 'passengers.id', '=', 'payments.passenger_id')
             ->join('trips', 'trips.id', '=', 'payments.trip_id')
             ->join('schools', 'schools.id', '=', 'passengers.school_id')
@@ -97,6 +98,7 @@ class PaymentController extends Controller
         ]);
 
         $query = Payment::query()
+            ->where('payments.status', 'POSTED')
             ->join('passengers', 'passengers.id', '=', 'payments.passenger_id')
             ->join('trips', 'trips.id', '=', 'payments.trip_id')
             ->join('schools', 'schools.id', '=', 'passengers.school_id')
@@ -166,12 +168,29 @@ class PaymentController extends Controller
             return response()->json(['message' => 'No autorizado para eliminar pagos.'], 403);
         }
 
-        DB::transaction(function () use ($payment) {
+        if ($payment->status === 'VOID') {
+            return response()->json(['message' => 'El pago ya se encuentra anulado.'], 422);
+        }
+
+        DB::transaction(function () use ($request, $payment) {
             AccountMovement::query()->where('payment_id', $payment->id)->delete();
             CashMovement::query()->where('payment_id', $payment->id)->delete();
-            $payment->delete();
+            $payment->update([
+                'status' => 'VOID',
+                'voided_at' => now(),
+                'voided_by_user_id' => (int) $request->user()->id,
+                'void_reason' => 'Anulado desde el historial de pagos',
+            ]);
         });
 
-        return response()->json(['message' => 'Pago eliminado correctamente.']);
+        return response()->json([
+            'message' => 'Pago anulado correctamente.',
+            'payment' => [
+                'id' => $payment->id,
+                'status' => 'VOID',
+                'voided_at' => $payment->fresh()->voided_at?->toDateTimeString(),
+                'voided_by_user_id' => (int) $request->user()->id,
+            ],
+        ]);
     }
 }

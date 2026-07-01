@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { createCashExpense, deleteCashExpense, fetchCashCategories, fetchCashMovements, fetchPaymentsReport, fetchUsers, resetCashboxRecords, type CashMovementRecord, type PaymentReportRecord } from "../services/api";
+import { createCashExpense, deleteCashExpense, fetchCashCategories, fetchCashMovements, fetchPaymentsReport, fetchUsers, resetCashboxRecords, type CashMovementRecord, type CashMovementSummary, type PaymentReportRecord } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 import { Role } from "../types/auth";
 import {
@@ -18,6 +18,19 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
+const MOVEMENTS_PER_PAGE = 100;
+
+const emptyCashMovementSummary: CashMovementSummary = {
+  incomes_cash: 0,
+  incomes_bank: 0,
+  expenses_cash: 0,
+  expenses_bank: 0,
+  total_incomes: 0,
+  total_expenses: 0,
+  balance: 0,
+  categories: [],
+};
+
 export function Cashbox() {
   const { user, token } = useAuth();
   const actorName = user?.name ?? "Sistema";
@@ -26,6 +39,10 @@ export function Cashbox() {
   const [categories, setCategories] = useState<CashboxCategory[]>(readCashboxCategories);
   const [audit, setAudit] = useState(() => readCashboxAudit().slice(0, 12));
   const [movements, setMovements] = useState<CashMovementRecord[]>([]);
+  const [movementSummary, setMovementSummary] = useState<CashMovementSummary>(emptyCashMovementSummary);
+  const [movementMeta, setMovementMeta] = useState({ page: 1, per_page: MOVEMENTS_PER_PAGE, total: 0, has_more: false, all: false });
+  const [movementPage, setMovementPage] = useState(1);
+  const [showAllHistory, setShowAllHistory] = useState(false);
   const [boxFilter, setBoxFilter] = useState<"ALL" | "CASH" | "BANK">("ALL");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");
@@ -56,13 +73,22 @@ export function Cashbox() {
       cash_box: boxFilter,
       date_from: dateFrom || undefined,
       date_to: dateTo || undefined,
+      page: movementPage,
+      per_page: MOVEMENTS_PER_PAGE,
+      all: showAllHistory,
     });
-    setMovements(data);
+    setMovements(data.data);
+    setMovementSummary(data.summary);
+    setMovementMeta(data.meta);
   };
 
   useEffect(() => {
-    loadMovements().catch(() => setMovements([]));
-  }, [token, categoryFilter, boxFilter, dateFrom, dateTo]);
+    loadMovements().catch(() => {
+      setMovements([]);
+      setMovementSummary(emptyCashMovementSummary);
+      setMovementMeta({ page: 1, per_page: MOVEMENTS_PER_PAGE, total: 0, has_more: false, all: false });
+    });
+  }, [token, categoryFilter, boxFilter, dateFrom, dateTo, movementPage, showAllHistory]);
 
   const loadCategories = async () => {
     if (!token) return;
@@ -104,56 +130,32 @@ export function Cashbox() {
       .catch(() => setUsers([]));
   }, [token]);
 
-  const incomesCash = useMemo(
-    () => movements
-      .filter((m) => m.type === "INCOME" && (m.cash_box === "CASH" || (!m.cash_box && m.method === "CASH")))
-      .reduce((acc, m) => acc + m.amount, 0),
-    [movements]
-  );
-  const incomesBank = useMemo(
-    () => movements
-      .filter((m) => m.type === "INCOME" && (m.cash_box === "BANK" || (!m.cash_box && m.method === "TRANSFER")))
-      .reduce((acc, m) => acc + m.amount, 0),
-    [movements]
-  );
   const expenses = useMemo(() => movements.filter((m) => m.type === "EXPENSE"), [movements]);
   const visibleExpenses = expenses;
-  const expensesCash = useMemo(
-    () => expenses
-      .filter((m) => m.cash_box === "CASH" || !m.cash_box)
-      .reduce((acc, m) => acc + m.amount, 0),
-    [expenses]
-  );
-  const expensesBank = useMemo(
-    () => expenses
-      .filter((m) => m.cash_box === "BANK")
-      .reduce((acc, m) => acc + m.amount, 0),
-    [expenses]
-  );
 
   const amountsByCategory = useMemo(() => {
     const map = new Map<number, number>();
-    expenses.forEach((expense) => {
-      const localCategory = categories.find((c) => c.label === (expense.category_name ?? ""));
-      const key = localCategory?.id ?? 0;
-      map.set(key, (map.get(key) ?? 0) + expense.amount);
+    movementSummary.categories.forEach((categoryTotal) => {
+      const localCategory = categories.find((c) => c.id === categoryTotal.category_id || c.label === categoryTotal.category_name);
+      const key = localCategory?.id ?? categoryTotal.category_id;
+      map.set(key, (map.get(key) ?? 0) + categoryTotal.amount);
     });
     return map;
-  }, [categories, expenses]);
+  }, [categories, movementSummary.categories]);
 
   const categoriesWithAmount = useMemo(
     () => categories.map((category) => ({ ...category, amount: amountsByCategory.get(category.id) ?? 0 })),
     [categories, amountsByCategory]
   );
 
-  const totalEgresos = useMemo(
-    () => expenses.reduce((acc, expense) => acc + expense.amount, 0),
-    [expenses]
-  );
-
+  const incomesCash = movementSummary.incomes_cash;
+  const incomesBank = movementSummary.incomes_bank;
+  const expensesCash = movementSummary.expenses_cash;
+  const expensesBank = movementSummary.expenses_bank;
+  const totalEgresos = movementSummary.total_expenses;
   const cashBalance = incomesCash - expensesCash;
   const bankBalance = incomesBank - expensesBank;
-  const balance = cashBalance + bankBalance;
+  const balance = movementSummary.balance;
 
   const chart = useMemo(() => {
     if (totalEgresos <= 0) {
@@ -204,6 +206,32 @@ export function Cashbox() {
     setBoxFilter("ALL");
     setDateFrom("");
     setDateTo("");
+    setMovementPage(1);
+    setShowAllHistory(true);
+  };
+
+  const updateDateFrom = (value: string) => {
+    setDateFrom(value);
+    setMovementPage(1);
+    setShowAllHistory(false);
+  };
+
+  const updateDateTo = (value: string) => {
+    setDateTo(value);
+    setMovementPage(1);
+    setShowAllHistory(false);
+  };
+
+  const updateCategoryFilter = (value: string) => {
+    setCategoryFilter(value);
+    setMovementPage(1);
+    setShowAllHistory(false);
+  };
+
+  const updateBoxFilter = (value: "ALL" | "CASH" | "BANK") => {
+    setBoxFilter(value);
+    setMovementPage(1);
+    setShowAllHistory(false);
   };
 
   const handleCreateCategory = (event: FormEvent<HTMLFormElement>) => {
@@ -390,11 +418,20 @@ export function Cashbox() {
       <div className="card form-grid">
         <label className="field">
           <span>Desde (egresos)</span>
-          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+          <input type="date" value={dateFrom} onChange={(e) => updateDateFrom(e.target.value)} />
         </label>
         <label className="field">
           <span>Hasta (egresos)</span>
-          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+          <input type="date" value={dateTo} onChange={(e) => updateDateTo(e.target.value)} />
+        </label>
+        <label className="field">
+          <span>Categoría de egreso</span>
+          <select value={categoryFilter} onChange={(e) => updateCategoryFilter(e.target.value)}>
+            <option value="all">Todas las categorías</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>{category.label}</option>
+            ))}
+          </select>
         </label>
         <label className="field">
           <span>Categoría de egreso</span>
@@ -407,7 +444,7 @@ export function Cashbox() {
         </label>
         <label className="field">
           <span>Caja / medio</span>
-          <select value={boxFilter} onChange={(e) => setBoxFilter(e.target.value as "ALL" | "CASH" | "BANK")}>
+          <select value={boxFilter} onChange={(e) => updateBoxFilter(e.target.value as "ALL" | "CASH" | "BANK")}>
             <option value="ALL">Todas</option>
             <option value="CASH">EFECTIVO</option>
             <option value="BANK">BANCO</option>
@@ -570,6 +607,10 @@ export function Cashbox() {
       </div>
 
       <div className="card placeholder-table">
+        <p>
+          Mostrando {visibleExpenses.length} egresos de {movementMeta.total} movimientos filtrados
+          {movementMeta.all ? " · histórico completo solicitado" : ` · página ${movementMeta.page}`}
+        </p>
         <div className="table-row header table-row-expenses">
           <span>Gasto</span>
           <span>Categoría</span>
@@ -592,6 +633,26 @@ export function Cashbox() {
             </span>
           </div>
         ))}
+        {!movementMeta.all ? (
+          <div className="form-actions">
+            <button
+              type="button"
+              className="btn"
+              disabled={movementPage <= 1}
+              onClick={() => setMovementPage((page) => Math.max(1, page - 1))}
+            >
+              Página anterior
+            </button>
+            <button
+              type="button"
+              className="btn"
+              disabled={!movementMeta.has_more}
+              onClick={() => setMovementPage((page) => page + 1)}
+            >
+              Página siguiente
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <div className="card placeholder-table">

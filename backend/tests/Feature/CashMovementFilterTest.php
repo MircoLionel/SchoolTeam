@@ -69,14 +69,24 @@ class CashMovementFilterTest extends TestCase
 
         $this->getJson('/api/cash-movements')
             ->assertOk()
-            ->assertJsonCount(3);
+            ->assertJsonPath('meta.total', 3)
+            ->assertJsonCount(3, 'data');
+
+        $this->getJson('/api/cash-movements?per_page=1')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 3)
+            ->assertJsonPath('meta.per_page', 1)
+            ->assertJsonPath('meta.has_more', true)
+            ->assertJsonCount(1, 'data');
 
         $this->getJson("/api/cash-movements?category_id={$officeCategoryId}&cash_box=BANK&date_from=2026-06-01&date_to=2026-06-30")
             ->assertOk()
-            ->assertJsonCount(1)
-            ->assertJsonPath('0.detail', 'Sillas')
-            ->assertJsonPath('0.category_name', 'Gastos De Oficina')
-            ->assertJsonPath('0.cash_box', 'BANK');
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.detail', 'Sillas')
+            ->assertJsonPath('data.0.category_name', 'Gastos De Oficina')
+            ->assertJsonPath('data.0.cash_box', 'BANK')
+            ->assertJsonPath('summary.total_expenses', 2000);
     }
 
     public function test_cash_categories_are_returned_from_backend(): void

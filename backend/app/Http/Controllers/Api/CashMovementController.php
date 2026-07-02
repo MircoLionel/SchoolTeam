@@ -21,7 +21,7 @@ class CashMovementController extends Controller
             'all' => ['nullable', 'boolean'],
         ]);
 
-        $query = CashMovement::query()->with('category');
+        $query = CashMovement::query()->with(['category', 'createdBy:id,name']);
 
         if (! empty($data['category_id'])) {
             $query->where('category_id', (int) $data['category_id']);
@@ -78,6 +78,7 @@ class CashMovementController extends Controller
                 'category_name' => $movement->category?->name,
                 'payment_id' => $movement->payment_id,
                 'created_at' => optional($movement->created_at)?->toISOString(),
+                'user_name' => $movement->createdBy?->name,
             ]);
 
         return response()->json([

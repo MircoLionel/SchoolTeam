@@ -18,6 +18,14 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
+function formatMovementDate(movement: CashMovementRecord) {
+  const value = movement.date || movement.created_at || "";
+  if (!value) return "-";
+  const parsed = new Date(value.includes("T") ? value : `${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString("es-AR");
+}
+
 const MOVEMENTS_PER_PAGE = 100;
 
 const emptyCashMovementSummary: CashMovementSummary = {
@@ -603,22 +611,26 @@ export function Cashbox() {
           {movementMeta.all ? " · histórico completo solicitado" : ` · página ${movementMeta.page}`}
         </p>
         <div className="table-row header table-row-expenses">
-          <span>Gasto</span>
+          <span>Fecha</span>
           <span>Categoría</span>
+          <span>Detalle / descripción</span>
           <span>Caja</span>
           <span>Importe</span>
+          <span>Usuario</span>
           <span>Acción</span>
         </div>
         {visibleExpenses.length === 0 ? (
           <div className="table-row table-row-expenses">
-            <span>Sin gastos registrados</span><span>-</span><span>-</span><span>-</span><span>-</span>
+            <span>Sin gastos registrados</span><span>-</span><span>-</span><span>-</span><span>-</span><span>-</span><span>-</span>
           </div>
         ) : visibleExpenses.map((expense) => (
           <div key={expense.id} className="table-row table-row-expenses">
-            <span>{expense.detail ?? "Sin detalle"}</span>
+            <span>{formatMovementDate(expense)}</span>
             <span>{expense.category_name ?? "Sin categoría"}</span>
+            <span>{expense.detail ?? "Sin detalle"}</span>
             <span>{expense.cash_box === "BANK" ? "BANCO" : "EFECTIVO"}</span>
             <span>{formatCurrency(expense.amount)}</span>
+            <span>{expense.user_name ?? "-"}</span>
             <span>
               {isAdmin ? <button type="button" className="btn btn-danger" onClick={() => handleDeleteExpense(expense.id)}>Eliminar egreso</button> : "-"}
             </span>

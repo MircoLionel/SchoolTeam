@@ -30,4 +30,9 @@ class CashMovement extends Model
     {
         return $this->belongsTo(CashCategory::class, 'category_id');
     }
+
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
 }

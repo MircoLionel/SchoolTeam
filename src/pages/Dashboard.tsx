@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { extractCount, fetchAudit, fetchPassengers, fetchTrips } from "../services/api";
+import { fetchDashboardSummary } from "../services/api";
 import { useAuth } from "../state/AuthContext";
 import { Role } from "../types/auth";
 
@@ -35,20 +35,16 @@ export function Dashboard() {
 
       setIsLoading(true);
       try {
-        const [tripsResponse, passengersResponse, auditResponse] = await Promise.all([
-          fetchTrips(token),
-          fetchPassengers(token),
-          user.role === Role.ADMIN ? fetchAudit(token) : Promise.resolve(null)
-        ]);
+        const summary = await fetchDashboardSummary(token);
 
         if (!isMounted) {
           return;
         }
 
         setCounts({
-          trips: extractCount(tripsResponse),
-          passengers: extractCount(passengersResponse),
-          audits: extractCount(auditResponse)
+          trips: summary.total_trips,
+          passengers: summary.total_passengers,
+          audits: user.role === Role.ADMIN ? summary.total_audit_events : null
         });
       } catch (error) {
         if (isMounted) {

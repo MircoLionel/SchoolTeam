@@ -203,6 +203,10 @@ a {
   grid-template-columns: 1.3fr 1.1fr 1.2fr 90px 140px 120px;
 }
 
+.account-payment-row {
+  grid-template-columns: 1fr 1fr 1fr 1fr 1.5fr 140px;
+}
+
 .link {
   background: transparent;
   border: none;
@@ -356,7 +360,7 @@ a {
 }
 
 .table-row-expenses {
-  grid-template-columns: 1.8fr 1fr 140px 160px;
+  grid-template-columns: 120px 1fr 1.6fr 120px 140px 1fr 160px;
 }
 
 .badge-positive {

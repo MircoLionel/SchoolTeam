@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuditController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CouponController;
 use App\Http\Controllers\Api\CashMovementController;
+use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\InstallmentPlanController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ReportController;
@@ -30,7 +31,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('budgets', \App\Http\Controllers\Api\BudgetController::class);
     Route::apiResource('passenger-types', \App\Http\Controllers\Api\PassengerTypeController::class);
     Route::apiResource('guardians', \App\Http\Controllers\Api\GuardianController::class);
+    Route::get('/passengers/search', [\App\Http\Controllers\Api\PassengerController::class, 'search']);
     Route::apiResource('passengers', \App\Http\Controllers\Api\PassengerController::class);
+    Route::get('/dashboard/summary', [DashboardController::class, 'summary']);
 
     Route::post('/installment-plans', [InstallmentPlanController::class, 'store']);
     Route::get('/installment-plans/{plan}', [InstallmentPlanController::class, 'show']);
@@ -39,6 +42,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/checkbooks', [\App\Http\Controllers\Api\CheckbookController::class, 'store']);
     Route::post('/checkbooks/render-pdf', [\App\Http\Controllers\Api\CheckbookController::class, 'renderPdf']);
     Route::post('/checkbooks/mark-printed', [\App\Http\Controllers\Api\CheckbookController::class, 'markPrinted']);
+    Route::post('/checkbooks/mark-printed-bulk', [\App\Http\Controllers\Api\CheckbookController::class, 'markPrintedBulk']);
     Route::get('/checkbooks/{checkbook}/pdf', [\App\Http\Controllers\Api\CheckbookController::class, 'downloadPdf']);
 
     Route::post('/coupons/scan', [CouponController::class, 'scan']);
@@ -54,6 +58,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/accounts/{passenger}', [ReportController::class, 'passengerAccount']);
 
     Route::get('/cash-movements', [CashMovementController::class, 'index']);
+    Route::get('/cash-categories', [CashMovementController::class, 'categories']);
     Route::post('/cash-movements/expense', [CashMovementController::class, 'storeExpense']);
     Route::delete('/cash-movements/{cashMovement}', [CashMovementController::class, 'destroy']);
     Route::delete('/cash-movements', [CashMovementController::class, 'reset']);

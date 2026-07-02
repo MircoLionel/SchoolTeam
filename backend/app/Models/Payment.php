@@ -17,6 +17,10 @@ class Payment extends Model
         'payment_date',
         'method',
         'amount_total',
+        'status',
+        'voided_at',
+        'voided_by_user_id',
+        'void_reason',
         'created_by',
         'notes',
     ];
@@ -25,5 +29,6 @@ class Payment extends Model
         'date' => 'date',
         'payment_date' => 'date',
         'method' => PaymentMethod::class,
+        'voided_at' => 'datetime',
     ];
 }

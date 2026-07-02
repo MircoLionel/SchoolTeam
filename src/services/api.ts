@@ -451,6 +451,38 @@ export interface CashMovementListResponse {
   summary: CashMovementSummary;
 }
 
+export interface CashCategoryRecord {
+  id: number;
+  name: string;
+}
+
+export interface CashMovementSummary {
+  incomes_cash: number;
+  incomes_bank: number;
+  expenses_cash: number;
+  expenses_bank: number;
+  total_incomes: number;
+  total_expenses: number;
+  balance: number;
+  categories: Array<{
+    category_id: number;
+    category_name: string;
+    amount: number;
+  }>;
+}
+
+export interface CashMovementListResponse {
+  data: CashMovementRecord[];
+  meta: {
+    page: number;
+    per_page: number;
+    total: number;
+    has_more: boolean;
+    all: boolean;
+  };
+  summary: CashMovementSummary;
+}
+
 export interface PassengerPaymentRecord {
   id: number;
   payment_date: string;
